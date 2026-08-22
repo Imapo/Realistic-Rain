@@ -83,5 +83,25 @@ Configs: {
 		}
 
 		DisplayName: Wetness Config
+
+		TileNeighborSpreadBonus: {
+			Tooltip: Бонус к скорости намокания, если соседний блок на той же глубине уже стал грязью (для эффекта расползающегося пятна)
+			Label: Tile Neighbor Spread Bonus
+		}
+
+		TileDepthRateMultiplier: {
+			Tooltip: Во сколько раз медленнее мокнет каждый следующий слой земли вглубь (макс. глубина - 3 блока)
+			Label: Tile Depth Rate Multiplier
+		}
+
+		TileSeepThreshold: {
+			Tooltip: Насколько должен промокнуть верхний слой земли, прежде чем начнёт мокнуть слой под ним
+			Label: Tile Seep Threshold
+		}
+
+		TileMaxAttemptsPerTick: {
+			Tooltip: Сколько случайных блоков за тик пытается промокнуть/просохнуть система (меньше = медленнее и естественнее)
+			Label: Tile Max Attempts Per Tick
+		}
 	}
 }

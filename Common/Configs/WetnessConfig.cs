@@ -77,12 +77,32 @@ namespace WetnessMod.Common.Configs
 
         [Range(0f, 10f)]
         [DefaultValue(0.6f)]
-        [Tooltip("Скорость накопления влаги в блоке земли под дождём (% в тик)")]
+        [Tooltip("Скорость накопления влаги в блоке земли под дождём за одну попытку (% за попытку)")]
         public float TileWetRate;
 
         [Range(0f, 10f)]
         [DefaultValue(0.25f)]
         [Tooltip("Скорость высыхания грязи, когда дождь прекратился (% в тик)")]
         public float TileDryRate;
+
+        [Range(1, 200)]
+        [DefaultValue(18)]
+        [Tooltip("Сколько случайных блоков за тик пытается промокнуть/просохнуть система (меньше = медленнее и естественнее)")]
+        public int TileMaxAttemptsPerTick;
+
+        [Range(0f, 100f)]
+        [DefaultValue(50f)]
+        [Tooltip("Насколько должен промокнуть верхний слой земли, прежде чем начнёт мокнуть слой под ним")]
+        public float TileSeepThreshold;
+
+        [Range(0.1f, 1f)]
+        [DefaultValue(0.55f)]
+        [Tooltip("Во сколько раз медленнее мокнет каждый следующий слой земли вглубь (макс. глубина - 3 блока)")]
+        public float TileDepthRateMultiplier;
+
+        [Range(0f, 2f)]
+        [DefaultValue(0.4f)]
+        [Tooltip("Бонус к скорости намокания, если соседний блок на той же глубине уже стал грязью (для эффекта расползающегося пятна)")]
+        public float TileNeighborSpreadBonus;
     }
 }

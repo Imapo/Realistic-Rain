@@ -69,7 +69,22 @@ namespace WetnessMod.Common.GlobalItems
         {
             for (int i = 0; i < WetnessPlayer.TrackedSlots; i++)
             {
-                if (player.armor[i] == item)
+                Item equipped = player.armor[i];
+                if (equipped == null || equipped.IsAir)
+                {
+                    continue;
+                }
+
+                // Прямое сравнение ссылок - самый надёжный вариант, но в некоторых версиях
+                // tModLoader/Terraria (особенно с системой лоадаутов) UI подсказки может
+                // получать не тот же самый объект Item, а его копию с идентичными данными.
+                // Поэтому дополнительно сверяем по типу+префиксу как страховку.
+                if (ReferenceEquals(equipped, item))
+                {
+                    return i;
+                }
+
+                if (equipped.type == item.type && equipped.prefix == item.prefix)
                 {
                     return i;
                 }
