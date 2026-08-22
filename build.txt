@@ -1,0 +1,7 @@
+displayName = Wetness Mod
+author = You
+version = 0.1.0
+homepage =
+description = Намокание экипировки под дождём/в воде/в джунглях и превращение земли в грязь на открытом дожде.
+side = Both
+modReferences =

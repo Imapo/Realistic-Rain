@@ -1,0 +1,87 @@
+Configs: {
+	WetnessConfig: {
+		TileDryRate: {
+			Tooltip: Скорость высыхания грязи, когда дождь прекратился (% в тик)
+			Label: Tile Dry Rate
+		}
+
+		TileWetRate: {
+			Tooltip: Скорость накопления влаги в блоке земли под дождём (% в тик)
+			Label: Tile Wet Rate
+		}
+
+		TileWetnessRangeX: {
+			Tooltip: Радиус в блоках влево/вправо от игрока, в котором отслеживается намокание земли
+			Label: Tile Wetness Range X
+		}
+
+		Headers: {
+			SoilToMud: Soil To Mud Header
+			EquipmentEffects: Equipment Effects Header
+			Drying: Drying Header
+			Wetting: Wetting Header
+		}
+
+		AccessoryDisableThreshold: {
+			Tooltip: Порог влажности, при котором аксессуар отключается
+			Label: Accessory Disable Threshold
+		}
+
+		MaxArmorDefenseLossFraction: {
+			Tooltip: Максимальная доля защиты, которую теряет полностью мокрая броня
+			Label: Max Armor Defense Loss Fraction
+		}
+
+		UnderworldDryMultiplier: {
+			Tooltip: ""
+			Label: Underworld Dry Multiplier
+		}
+
+		CampfireDryMultiplier: {
+			Tooltip: ""
+			Label: Campfire Dry Multiplier
+		}
+
+		UndergroundDryMultiplier: {
+			Tooltip: ""
+			Label: Underground Dry Multiplier
+		}
+
+		CloudyOrNightDryMultiplier: {
+			Tooltip: ""
+			Label: Cloudy Or Night Dry Multiplier
+		}
+
+		SunnyDryMultiplier: {
+			Tooltip: ""
+			Label: Sunny Dry Multiplier
+		}
+
+		BaseDryRate: {
+			Tooltip: Базовая скорость высыхания (% в тик), дальше умножается на модификаторы погоды/места
+			Label: Base Dry Rate
+		}
+
+		JungleAmbientWetCap: {
+			Tooltip: Максимальная влажность от одних только джунглей без дождя
+			Label: Jungle Ambient Wet Cap
+		}
+
+		JungleAmbientWetRate: {
+			Tooltip: Скорость фонового намокания в джунглях без дождя (% в тик)
+			Label: Jungle Ambient Wet Rate
+		}
+
+		WaterWetRate: {
+			Tooltip: Скорость намокания при погружении в воду (% в тик)
+			Label: Water Wet Rate
+		}
+
+		RainWetRate: {
+			Tooltip: Скорость намокания под дождём (% в тик)
+			Label: Rain Wet Rate
+		}
+
+		DisplayName: Wetness Config
+	}
+}
