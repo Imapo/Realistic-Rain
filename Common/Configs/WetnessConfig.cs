@@ -81,8 +81,8 @@ namespace WetnessMod.Common.Configs
         public float TileWetRate;
 
         [Range(0f, 10f)]
-        [DefaultValue(0.25f)]
-        [Tooltip("Скорость высыхания грязи, когда дождь прекратился (% в тик)")]
+        [DefaultValue(0.6f)]
+        [Tooltip("Скорость высыхания грязи, когда дождь прекратился (% в тик) - специально равна скорости намокания, чтобы сохнуть примерно так же долго, как мокнет")]
         public float TileDryRate;
 
         [Range(1, 200)]
@@ -117,8 +117,8 @@ namespace WetnessMod.Common.Configs
         public int FireExtinguishRangeX;
 
         [Range(1, 200)]
-        [DefaultValue(10)]
-        [Tooltip("Сколько случайных факелов/костров за тик пытается потушить/разжечь система")]
+        [DefaultValue(6)]
+        [Tooltip("Сколько случайных факелов/костров за тик пытается потушить система")]
         public int FireMaxAttemptsPerTick;
 
         [Range(1, 200)]
@@ -126,22 +126,18 @@ namespace WetnessMod.Common.Configs
         [Tooltip("На сколько блоков вверх проверяется наличие крыши над факелом/костром (больше = точнее, но дороже)")]
         public int FireMaxSkyCheckHeight;
 
-        [Range(0f, 1f)]
-        [DefaultValue(0.02f)]
-        [Tooltip("Базовый шанс потухнуть за одну попытку при максимальной силе дождя")]
-        public float FireBaseExtinguishChance;
+        [Range(0f, 10f)]
+        [DefaultValue(0.15f)]
+        [Tooltip("Сколько 'прогресса тушения' (0-100) набегает за одну успешную попытку при максимальной силе дождя - меньше значение = дольше и разнообразнее по времени гаснут факелы/костры")]
+        public float FireExtinguishRate;
+
+        [Range(0f, 10f)]
+        [DefaultValue(0.4f)]
+        [Tooltip("Как быстро остывает накопленный прогресс тушения, если дождь прекратился или тайл оказался под крышей, не успев погаснуть")]
+        public float FireExtinguishCooldownRate;
 
         [DefaultValue(true)]
-        [Tooltip("Пускать дым/пар при тушении")]
+        [Tooltip("Пускать дым/пар при тушении и по пути к нему")]
         public bool FireSpawnDust;
-
-        [DefaultValue(true)]
-        [Tooltip("Разрешить потухшим факелам/костру самим разгораться заново, когда дождь закончился или их накрыло крышей")]
-        public bool FireAutoRelight;
-
-        [Range(0f, 1f)]
-        [DefaultValue(0.05f)]
-        [Tooltip("Шанс разжечься заново за одну попытку, когда условия позволяют")]
-        public float FireRelightChance;
     }
 }

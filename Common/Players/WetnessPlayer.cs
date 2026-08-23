@@ -61,10 +61,11 @@ namespace WetnessMod.Common.Players
 
                 WetnessGlobalItem wetnessData = equipped.GetGlobalItem<WetnessGlobalItem>();
                 float wet = wetnessData.Wetness;
+                float itemMultiplier = wetnessData.GetRateMultiplier();
 
                 if (wetDelta > 0f)
                 {
-                    wet += wetDelta;
+                    wet += wetDelta * itemMultiplier;
                 }
 
                 // Фоновая влажность джунглей действует независимо от дождя, но имеет потолок
@@ -72,7 +73,7 @@ namespace WetnessMod.Common.Players
                 {
                     if (wet < config.JungleAmbientWetCap)
                     {
-                        wet += config.JungleAmbientWetRate;
+                        wet += config.JungleAmbientWetRate * itemMultiplier;
                         if (wet > config.JungleAmbientWetCap)
                         {
                             wet = config.JungleAmbientWetCap;
@@ -84,10 +85,84 @@ namespace WetnessMod.Common.Players
                 // иначе дождь/вода "перекрывали" бы высыхание, а не наоборот.
                 if (wetDelta <= 0f)
                 {
-                    wet -= dryDelta;
+                    wet -= dryDelta * itemMultiplier;
                 }
 
                 wetnessData.Wetness = MathHelper.Clamp(wet, 0f, 100f);
+            }
+
+            HideWetAccessories(config);
+        }
+
+        // Сюда на время прячутся мокрые аксессуары, чтобы ванильный код их "не увидел"
+        // и не применил эффект в этот тик (см. HideWetAccessories/RestoreHiddenAccessories).
+        private readonly Item[] hiddenAccessories = new Item[TrackedSlots];
+        private readonly Item[] hidingPlaceholders = new Item[TrackedSlots];
+
+        /// <summary>
+        /// Настоящее (а не выборочное) отключение эффекта мокрого аксессуара. Идея: ванильные
+        /// и модовые эффекты аксессуаров применяются где-то между PreUpdate и PostUpdateEquips
+        /// (именно тогда игра проходит по player.armor и вызывает UpdateAccessory/UpdateEquip
+        /// у каждого предмета). Если непосредственно перед этим временно подменить слот на
+        /// пустой предмет, игра для этого тика попросту не увидит аксессуар — а значит не
+        /// применит вообще никакой его эффект, будь то полёт, ускорение или что угодно ещё,
+        /// без необходимости вручную перечислять и сбрасывать поля Player по одному.
+        /// Сразу после (в PostUpdateEquips) настоящий предмет возвращается на место, поэтому
+        /// визуально, в тултипах и в инвентаре ничего не меняется — вещь просто "не работает"
+        /// этот тик, но остаётся на месте.
+        /// </summary>
+        private void HideWetAccessories(WetnessConfig config)
+        {
+            for (int i = 3; i < TrackedSlots; i++)
+            {
+                Item item = Player.armor[i];
+                if (item == null || item.IsAir)
+                {
+                    continue;
+                }
+
+                if (!IsItemDisabledByWetness(item))
+                {
+                    continue;
+                }
+
+                Item placeholder = new Item(); // пустышка вместо предмета на время этого тика
+                hiddenAccessories[i] = item;
+                hidingPlaceholders[i] = placeholder;
+                Player.armor[i] = placeholder;
+            }
+        }
+
+        /// <summary>
+        /// Возвращает спрятанные аксессуары на место сразу после того, как ванильная игра
+        /// применила эффекты экипировки. Проверяем по ссылке, что слот всё ещё содержит
+        /// именно нашу пустышку — если что-то другое успело туда записаться (крайне редкий
+        /// случай стороннего мода/интерфейса), не перетираем это чужое изменение, а возвращаем
+        /// предмет игроку в инвентарь, чтобы он точно не потерялся.
+        /// </summary>
+        private void RestoreHiddenAccessories()
+        {
+            for (int i = 3; i < TrackedSlots; i++)
+            {
+                Item hidden = hiddenAccessories[i];
+                if (hidden == null)
+                {
+                    continue;
+                }
+
+                if (Player.armor[i] == hidingPlaceholders[i])
+                {
+                    Player.armor[i] = hidden;
+                }
+                else
+                {
+                    // Слот успели изменить снаружи, пока предмет был спрятан - не перетираем,
+                    // а подстраховываемся и просто отдаём вещь игроку, чтобы она не пропала.
+                    Player.QuickSpawnItem(Player.GetSource_Misc("WetnessMod_RestoreAccessory"), hidden);
+                }
+
+                hiddenAccessories[i] = null;
+                hidingPlaceholders[i] = null;
             }
         }
 
@@ -223,8 +298,9 @@ namespace WetnessMod.Common.Players
         }
 
         /// <summary>
-        /// Штраф к защите от мокрой брони. Применяется здесь, а не в PreUpdate,
-        /// чтобы точно сработать после того, как ванильная броня уже посчитала базовую защиту.
+        /// Штраф к защите от мокрой брони + возврат спрятанных мокрых аксессуаров на место.
+        /// Применяется здесь, а не в PreUpdate, чтобы точно сработать после того, как
+        /// ванильная броня/аксессуары уже применили свои эффекты за этот тик.
         /// </summary>
         public override void PostUpdateEquips()
         {
@@ -245,60 +321,18 @@ namespace WetnessMod.Common.Players
                     Player.statDefense -= loss;
                 }
             }
+
+            RestoreHiddenAccessories();
         }
 
         /// <summary>
-        /// Проверка "предмет сейчас отключён из-за влажности".
-        /// Полноценно генерически отключить эффект ЛЮБОГО ванильного аксессуара средствами
-        /// tModLoader нельзя — их эффекты применяются напрямую в коде самой игры через
-        /// публичные поля Player (canFly, waterWalk, doubleJump и т.д.), и tModLoader не даёт
-        /// единого хука "отмени эффект этого предмета". Поэтому:
-        ///  - для СВОИХ будущих аксессуаров мод-предметов — проверяйте этот метод прямо в их
-        ///    UpdateAccessory(Player player, bool hideVisual) и просто не применяйте эффект;
-        ///  - для ключевых ванильных аксессуаров ниже реализован набор "ручных" сбросов полей
-        ///    как рабочий пример, который можно расширять.
+        /// Проверка "предмет сейчас отключён из-за влажности". Используется и для решения
+        /// прятать ли аксессуар в HideWetAccessories, и для показа статуса в тултипе.
         /// </summary>
         public static bool IsItemDisabledByWetness(Item item)
         {
             WetnessConfig config = ModContent.GetInstance<WetnessConfig>();
             return item.GetGlobalItem<WetnessGlobalItem>().Wetness >= config.AccessoryDisableThreshold;
-        }
-
-        /// <summary>
-        /// Пример ручного отключения эффекта нескольких известных ванильных аксессуаров,
-        /// когда они полностью намокли. Список специально небольшой и служит образцом —
-        /// расширяйте его по мере необходимости своими айтемами/полями.
-        /// </summary>
-        public override void PostUpdateMiscEffects()
-        {
-            for (int i = 3; i < TrackedSlots; i++)
-            {
-                Item accessory = Player.armor[i];
-                if (accessory == null || accessory.IsAir)
-                {
-                    continue;
-                }
-
-                if (!IsItemDisabledByWetness(accessory))
-                {
-                    continue;
-                }
-
-                if (accessory.type == ItemID.CloudinaBottle || accessory.type == ItemID.CloudinaBalloon)
-                {
-                    Player.jumpBoost = false;
-                    Player.extraFall = 0;
-                }
-                else if (accessory.type == ItemID.HermesBoots)
-                {
-                    Player.moveSpeed -= 0.15f; // грубая компенсация ускорения от ботинок
-                }
-                else if (accessory.type == ItemID.ShinyRedBalloon)
-                {
-                    Player.jumpSpeedBoost -= 0.5f;
-                }
-                // Дальше можно добавлять другие аксессуары по такому же принципу.
-            }
         }
 
         /// <summary>

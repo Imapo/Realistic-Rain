@@ -21,10 +21,26 @@ namespace WetnessMod.Common.GlobalItems
 
         public float Wetness;
 
+        // Индивидуальный множитель скорости намокания/высыхания этого конкретного предмета
+        // (0.75x..1.3x), выбирается один раз случайно и запоминается навсегда - чтобы вещи
+        // одного типа не мокли строго идентично, а немного отличались друг от друга.
+        // 0 означает "ещё не назначен" (см. GetRateMultiplier).
+        public float RateMultiplier;
+
+        public float GetRateMultiplier()
+        {
+            if (RateMultiplier <= 0f)
+            {
+                RateMultiplier = Main.rand.NextFloat(0.75f, 1.3f);
+            }
+            return RateMultiplier;
+        }
+
         public override GlobalItem Clone(Item item, Item itemClone)
         {
             WetnessGlobalItem clone = (WetnessGlobalItem)base.Clone(item, itemClone);
             clone.Wetness = Wetness;
+            clone.RateMultiplier = RateMultiplier;
             return clone;
         }
 
@@ -34,11 +50,16 @@ namespace WetnessMod.Common.GlobalItems
             {
                 tag["wetness"] = Wetness;
             }
+            if (RateMultiplier > 0f)
+            {
+                tag["wetnessRateMul"] = RateMultiplier;
+            }
         }
 
         public override void LoadData(Item item, TagCompound tag)
         {
             Wetness = tag.GetFloat("wetness");
+            RateMultiplier = tag.GetFloat("wetnessRateMul");
         }
 
         public override void ModifyTooltips(Item item, List<TooltipLine> tooltips)
