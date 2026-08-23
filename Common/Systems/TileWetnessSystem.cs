@@ -62,6 +62,8 @@ namespace WetnessMod.Common.Systems
         /// на глубину до MaxDepth от первого открытого (без крыши) твёрдого блока.
         /// Копка сквозь камень или другие блоки останавливает погружение вглубь -
         /// пропитывается только "почвенный" слой.
+        /// 
+        /// НОВОЕ: Исключает тайлы под деревьями (ствол и крона ±2 блока), чтобы не ломать деревья.
         /// </summary>
         private void RebuildCandidates(WetnessConfig config)
         {
@@ -87,6 +89,12 @@ namespace WetnessMod.Common.Systems
                 if (x < 10 || x >= Main.maxTilesX - 10)
                 {
                     continue;
+                }
+
+                // НОВОЕ: Проверяем, находится ли эта колонка под деревом
+                if (IsUnderTree(x))
+                {
+                    continue; // Пропускаем колонки под деревьями
                 }
 
                 int surfaceY = FindOpenSurfaceTile(x);
@@ -117,6 +125,41 @@ namespace WetnessMod.Common.Systems
                     candidates.Add((x, y, depth));
                 }
             }
+        }
+
+        /// <summary>
+        /// Проверяет, находится ли колонка X под деревом (ствол или крона).
+        /// Дерево защищает землю от дождя в радиусе ±2 блока от ствола.
+        /// </summary>
+        private bool IsUnderTree(int x)
+        {
+            // Проверяем колонку X и соседние ±2 блока на наличие дерева
+            for (int checkX = x - 2; checkX <= x + 2; checkX++)
+            {
+                if (checkX < 0 || checkX >= Main.maxTilesX)
+                {
+                    continue;
+                }
+
+                // Ищем дерево в этой колонке (обычно деревья начинаются от поверхности)
+                int startY = (int)Main.worldSurface - 60;
+                if (startY < 10)
+                {
+                    startY = 10;
+                }
+                int endY = (int)Main.worldSurface + 20;
+
+                for (int y = startY; y < endY && y < Main.maxTilesY; y++)
+                {
+                    Tile tile = Main.tile[checkX, y];
+                    if (tile != null && tile.HasTile && tile.TileType == TileID.Trees)
+                    {
+                        return true; // Нашли дерево в радиусе ±2 блока
+                    }
+                }
+            }
+
+            return false;
         }
 
         private static bool IsSoilTile(ushort type)

@@ -19,16 +19,6 @@ namespace WetnessMod.Common.Configs
         [Tooltip("Скорость намокания при погружении в воду (% в тик)")]
         public float WaterWetRate;
 
-        [Range(0f, 5f)]
-        [DefaultValue(0.03f)]
-        [Tooltip("Скорость фонового намокания в джунглях без дождя (% в тик)")]
-        public float JungleAmbientWetRate;
-
-        [DefaultValue(40f)]
-        [Range(0f, 100f)]
-        [Tooltip("Максимальная влажность от одних только джунглей без дождя")]
-        public float JungleAmbientWetCap;
-
         [Header("Drying")]
 
         [Range(0f, 5f)]

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ID;
@@ -37,16 +38,30 @@ namespace WetnessMod.Common.Players
             bool raining = Main.raining && cachedOpenSky;
             bool inJungle = Player.ZoneJungle;
 
-            // Вклад от погружения в воду и от дождя считаем ОТДЕЛЬНО: непромокаемая одежда
-            // (плащ, рыбацкий костюм и т.д.) защищает именно от дождя, а не от того, что
-            // персонаж с головой залез в озеро - защита от дождя на подводное намокание
-            // не распространяется.
+            // Вклад от погружения в воду и от дождя считаем ОТДЕЛЬНО.
             float waterContribution = inWater ? config.WaterWetRate : 0f;
-            float rainContributionBase = raining ? config.RainWetRate * (inJungle ? 1.3f : 1f) : 0f;
 
-            // Сколько из трёх слотов брони (шлем/грудь/ноги) сейчас заняты непромокаемой
-            // одеждой - от этого зависит, насколько сильно ослабляется вклад дождя отдельно
-            // для брони и отдельно для аксессуаров (см. GetRainProofArmorPieceCount).
+            // --- НОВОЕ: Проверка активной защиты от зонта ---
+            // Проверяем, держит ли игрок зонт в активной руке
+            Item heldItem = Player.inventory[Player.selectedItem];
+            bool holdingUmbrella = heldItem.type == ItemID.Umbrella || heldItem.type == ItemID.TragicUmbrella;
+            
+            // Проверяем, носит ли игрок шляпу-зонт в слоте тщеславия для головы (индекс 10)
+            Item vanityHead = Player.armor[10];
+            bool wearingUmbrellaHat = vanityHead != null && !vanityHead.IsAir && vanityHead.type == ItemID.UmbrellaHat;
+
+            bool hasUmbrellaProtection = holdingUmbrella || wearingUmbrellaHat;
+            // -------------------------------------------------
+
+            // Если есть защита зонтом, вклад дождя равен 0 (100% защита от дождя).
+            // Вода (погружение) при этом всё равно будет мочить, что логично.
+            float rainContributionBase = (raining && !hasUmbrellaProtection) 
+                ? config.RainWetRate * (inJungle ? 1.3f : 1f) 
+                : 0f;
+
+            // Сколько из трёх слотов тщеславия (шлем/грудь/ноги) сейчас заняты непромокаемой
+            // одеждой (дождевик, рыбацкий костюм) - эта логика остаётся на случай, 
+            // если игрок убрал зонт, но оставил дождевик.
             int rainProofPieces = GetRainProofArmorPieceCount();
             float armorRainReduction = System.Math.Min(config.RainProtectionMaxArmor, config.RainProtectionPerPieceArmor * rainProofPieces);
             float accessoryRainReduction = System.Math.Min(config.RainProtectionMaxAccessory, config.RainProtectionPerPieceAccessory * rainProofPieces);
@@ -79,20 +94,6 @@ namespace WetnessMod.Common.Players
                 if (wetDelta > 0f)
                 {
                     wet += wetDelta * itemMultiplier * tickNoise;
-                }
-
-                // Фоновая влажность джунглей действует независимо от дождя, но имеет потолок
-                // (непромокаемая одежда от дождя не защищает от общей сырости джунглей)
-                if (inJungle && !raining && !inWater)
-                {
-                    if (wet < config.JungleAmbientWetCap)
-                    {
-                        wet += config.JungleAmbientWetRate * itemMultiplier * tickNoise;
-                        if (wet > config.JungleAmbientWetCap)
-                        {
-                            wet = config.JungleAmbientWetCap;
-                        }
-                    }
                 }
 
                 // Высыхание применяется, только если сейчас ничего не мочит вещь активно —
@@ -317,10 +318,9 @@ namespace WetnessMod.Common.Players
         }
 
         /// <summary>
-        /// Грубая, но дешёвая проверка "есть ли открытое небо над игроком":
-        /// идём вверх по колонке тайлов от позиции игрока и ищем твёрдый блок.
-        /// Не учитывает ширину крыши (как в ванильном дожде), но для механики намокания
-        /// этого достаточно и гораздо дешевле по производительности.
+        /// Проверяет, находится ли игрок под открытым небом (дождь может его намочить).
+        /// Если игрок под землёй (ниже поверхности мира) - дождь его не достанет,
+        /// даже если над ним есть пещеры с открытым потолком.
         /// </summary>
         private bool IsUnderOpenSky()
         {
@@ -332,6 +332,15 @@ namespace WetnessMod.Common.Players
             int tileX = (int)(Player.Center.X / 16f);
             int tileY = (int)(Player.position.Y / 16f);
 
+            // Проверяем, находится ли игрок ниже поверхности мира
+            // Если да - дождь не может его намочить, даже если над ним пещера
+            double surfaceLevel = Main.worldSurface;
+            if (tileY > surfaceLevel + 10) // +10 для небольшого буфера
+            {
+                return false; // игрок под землёй, дождь не достанет
+            }
+
+            // Игрок на поверхности - проверяем наличие крыши над головой
             for (int y = tileY; y >= 10; y--)
             {
                 if (tileX < 0 || tileX >= Main.maxTilesX || y < 0 || y >= Main.maxTilesY)
@@ -340,6 +349,11 @@ namespace WetnessMod.Common.Players
                 }
 
                 Tile tile = Main.tile[tileX, y];
+                if (tile == null)
+                {
+                    continue;
+                }
+
                 if (tile.HasTile && Main.tileSolid[tile.TileType] && !Main.tileSolidTop[tile.TileType])
                 {
                     return false; // нашли крышу/потолок над головой
@@ -350,11 +364,20 @@ namespace WetnessMod.Common.Players
         }
 
         /// <summary>
-        /// Ищет зажжённый костёр (или похожий источник тепла) в радиусе вокруг игрока.
-        /// Используется как "укрытие для сушки".
+        /// Проверяет, есть ли рядом горящий костёр, используя ванильный бафф "Уютный огонь".
+        /// Если у игрока есть этот бафф, значит игра сама определила, что рядом есть горящий костёр.
         /// </summary>
         private bool IsNearCampfireOrWarmth()
         {
+            // Проверяем наличие баффа "Уютный огонь" (Cozy Fire, ID 88)
+            // Если бафф есть - рядом есть горящий костёр
+            if (Player.HasBuff(BuffID.Campfire))
+            {
+                return true;
+            }
+
+            // Хефай / кузница тоже источник тепла, чтобы сушиться можно было и в базе
+            // Для них проверяем наличие вручную, так как у них нет баффа
             int radiusTiles = 8;
             int tileX = (int)(Player.Center.X / 16f);
             int tileY = (int)(Player.Center.Y / 16f);
@@ -374,17 +397,6 @@ namespace WetnessMod.Common.Players
                         continue;
                     }
 
-                    // Раньше здесь была проверка tile.TileFrameX < 66 как признак "костёр горит" -
-                    // это было непроверенное предположение о формате кадров спрайта, и оно
-                    // могло быть попросту неверным. Правильный способ узнать, что конкретный
-                    // костёр сейчас потушен - спросить у FireExtinguishSystem, которая явно
-                    // отслеживает потушенные ею тайлы через штатный игровой API переключения.
-                    if (tile.TileType == TileID.Campfire && !FireExtinguishSystem.IsExtinguishedByUs(x, y))
-                    {
-                        return true;
-                    }
-
-                    // Хефай / кузница тоже источник тепла, чтобы сушиться можно было и в базе
                     if (tile.TileType == TileID.Hellforge || tile.TileType == TileID.AdamantiteForge)
                     {
                         return true;
@@ -510,7 +522,9 @@ namespace WetnessMod.Common.Players
         }
 
         /// <summary>
-        /// Чисто визуальный бонус: с намокшей брони капает вода. Работает только на клиенте.
+        /// Визуальный эффект: капли стекают с мокрых предметов экипировки.
+        /// Чем сильнее промокла вещь, тем больше с неё капает.
+        /// Работает только на клиенте.
         /// </summary>
         public override void PostUpdate()
         {
@@ -519,43 +533,96 @@ namespace WetnessMod.Common.Players
                 return;
             }
 
-            float maxWet = 0f;
-            for (int i = 0; i < 3; i++)
+            // Собираем информацию о всех мокрых предметах (броня + аксессуары)
+            List<(int slot, float wetness)> wetItems = new List<(int, float)>();
+            
+            for (int i = 0; i < TrackedSlots; i++)
             {
-                Item armorPiece = Player.armor[i];
-                if (armorPiece == null || armorPiece.IsAir)
+                Item item = Player.armor[i];
+                if (item == null || item.IsAir)
                 {
                     continue;
                 }
 
-                float wet = armorPiece.GetGlobalItem<WetnessGlobalItem>().Wetness;
-                if (wet > maxWet)
+                float wet = item.GetGlobalItem<WetnessGlobalItem>().Wetness;
+                if (wet > 20f) // Начинаем показывать капли только при заметной влажности
                 {
-                    maxWet = wet;
+                    wetItems.Add((i, wet));
                 }
             }
 
-            if (maxWet < 40f)
+            if (wetItems.Count == 0)
             {
                 return;
             }
 
-            // Чем мокрее броня, тем чаще падают капли. При 100% — почти каждый кадр есть шанс.
-            float dropChance = (maxWet - 40f) / 60f; // 0..1
-            if (Main.rand.NextFloat() < dropChance * 0.06f)
+            // Ограничиваем количество капель за тик для производительности
+            int maxDropsPerTick = 4;
+            int dropsSpawned = 0;
+
+            foreach (var (slot, wetness) in wetItems)
             {
+                if (dropsSpawned >= maxDropsPerTick)
+                {
+                    break;
+                }
+
+                // Шанс капли пропорционален влажности (0..1 при влажности 20..100)
+                float dropChance = (wetness - 20f) / 80f;
+                
+                if (Main.rand.NextFloat() >= dropChance * 0.15f)
+                {
+                    continue;
+                }
+
+                // Определяем позицию капли в зависимости от слота
+                Vector2 dropPosition = GetDropPosition(slot);
+
                 Dust drop = Dust.NewDustDirect(
-                    Player.position,
-                    Player.width,
-                    Player.height,
+                    dropPosition,
+                    4, 4,
                     DustID.Water,
-                    0f, 1.5f,
+                    0f, 2f,
                     100,
                     default,
-                    1f
+                    0.8f
                 );
                 drop.noGravity = false;
-                drop.velocity.Y += 1f;
+                drop.velocity.Y += 1.5f;
+                drop.velocity.X += Main.rand.NextFloat(-0.3f, 0.3f);
+
+                dropsSpawned++;
+            }
+        }
+
+        /// <summary>
+        /// Возвращает позицию для капли в зависимости от слота экипировки.
+        /// Капли стекают с конкретных частей тела, где надеты мокрые предметы.
+        /// </summary>
+        private Vector2 GetDropPosition(int slot)
+        {
+            Vector2 basePos = Player.position;
+            
+            switch (slot)
+            {
+                case 0: // Шлем - капли с головы
+                    return new Vector2(basePos.X + Player.width / 2f - 2f, basePos.Y - 2f);
+                case 1: // Нагрудник - капли с торса
+                    return new Vector2(basePos.X + Player.width / 2f - 2f, basePos.Y + 12f);
+                case 2: // Поножи - капли с ног
+                    return new Vector2(basePos.X + Player.width / 2f - 2f, basePos.Y + 26f);
+                case 3:
+                case 4: // Аксессуары слева - капли с левой стороны
+                    return new Vector2(basePos.X + Player.width / 2f - 10f, basePos.Y + 16f);
+                case 5:
+                case 6: // Аксессуары справа - капли с правой стороны
+                    return new Vector2(basePos.X + Player.width / 2f + 6f, basePos.Y + 16f);
+                case 7:
+                case 8:
+                case 9: // Остальные аксессуары - капли снизу
+                    return new Vector2(basePos.X + Player.width / 2f - 2f, basePos.Y + 22f);
+                default:
+                    return new Vector2(basePos.X + Player.width / 2f - 2f, basePos.Y + 10f);
             }
         }
     }
