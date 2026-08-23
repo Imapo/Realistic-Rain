@@ -10,14 +10,19 @@ namespace WetnessMod.Common.Configs
         [Header("Wetting")]
 
         [Range(0f, 5f)]
-        [DefaultValue(0.12f)]
-        [Tooltip("Скорость намокания под дождём (% в тик)")]
+        [DefaultValue(0.003f)]
+        [Tooltip("Скорость намокания под дождём (% в тик) - снижена, чтобы одежда мокла заметно дольше")]
         public float RainWetRate;
 
         [Range(0f, 5f)]
-        [DefaultValue(1.2f)]
-        [Tooltip("Скорость намокания при погружении в воду (% в тик)")]
+        [DefaultValue(0.6f)]
+        [Tooltip("Скорость намокания при погружении в воду (% в тик) - тоже снижена, хотя погружение всё ещё мочит быстрее дождя")]
         public float WaterWetRate;
+
+        [Range(0.05f, 1f)]
+        [DefaultValue(0.001f)]
+        [Tooltip("Во сколько раз медленнее мокнет одежда под снегом в зимнем биоме по сравнению с обычным дождём (0.3 = в ~3 раза медленнее) - сухой снег стряхивается с одежды, а не сразу пропитывает её, в отличие от дождя")]
+        public float SnowWetRateMultiplier;
 
         [Header("Drying")]
 
@@ -50,6 +55,16 @@ namespace WetnessMod.Common.Configs
         [DefaultValue(3f)]
         [Tooltip("Множитель высыхания рядом с зажжённым костром/кузницей/хеллфорджем - перебивает все остальные условия")]
         public float CampfireDryMultiplier;
+
+        [Range(0.1f, 10f)]
+        [DefaultValue(1.6f)]
+        [Tooltip("Множитель высыхания рядом с горящим факелом - слабее костра, но помогает там, где без него было бы медленно (в помещении/под землёй). Если обычные условия и так лучше (например, солнце на улице), факел ничего не меняет")]
+        public float TorchDryMultiplier;
+
+        [Range(1, 100)]
+        [DefaultValue(10)]
+        [Tooltip("Радиус в блоках, в котором ищутся горящие костры/факелы/кузницы для ускорения высыхания. Тайл дополнительно должен быть в прямой видимости - через стену не считается")]
+        public int FireWarmthDetectionRadius;
 
         [Range(0.1f, 10f)]
         [DefaultValue(3f)]
@@ -166,5 +181,15 @@ namespace WetnessMod.Common.Configs
         [DefaultValue(true)]
         [Tooltip("Пускать дым/пар при тушении и по пути к нему")]
         public bool FireSpawnDust;
+
+        [Header("VisualEffects")]
+
+        [DefaultValue(true)]
+        [Tooltip("Показывать капли воды с мокрой брони/аксессуаров")]
+        public bool WaterDripEnabled;
+
+        [DefaultValue(false)]
+        [Tooltip("Показывать морозный блеск на месте слота предмета, который прямо сейчас отключён из-за влажности (DisabledByWetness). По умолчанию выключено - можно включить, если захочется более явную индикацию отказавших вещей")]
+        public bool DisabledItemSparkleEnabled;
     }
 }

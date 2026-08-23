@@ -42,6 +42,7 @@ Configs: {
 			Wetting: Wetting Header
 			FireExtinguish: Fire Extinguish Header
 			RainProtection: Rain Protection Header
+			VisualEffects: Visual Effects Header
 		}
 
 		AccessoryDisableThreshold: {
@@ -184,6 +185,41 @@ Configs: {
 		RainProtectionMaxAccessory: {
 			Label: Rain Protection Max Accessory
 			Tooltip: Максимальное суммарное снижение вклада дождя в намокание аксессуаров (при всех 3 непромокаемых предметах)
+		}
+
+		SnowWetRate: {
+			Label: Snow Wet Rate
+			Tooltip: Скорость намокания от снега/метели (% в тик)
+		}
+
+		SnowDryMultiplier: {
+			Label: Snow Dry Multiplier
+			Tooltip: Множитель скорости высыхания в снежном биоме (без костра) из-за холода
+		}
+
+		SnowWetRateMultiplier: {
+			Label: Snow Wet Rate Multiplier
+			Tooltip: Во сколько раз быстрее мокнет одежда под дождём/снегом, когда игрок находится в зимнем биоме - снег ощутимо сырее обычного дождя
+		}
+
+		TorchDryMultiplier: {
+			Label: Torch Dry Multiplier
+			Tooltip: Множитель высыхания рядом с горящим факелом - слабее костра, но помогает там, где без него было бы медленно (в помещении/под землёй). Если обычные условия и так лучше (например, солнце на улице), факел ничего не меняет
+		}
+
+		FireWarmthDetectionRadius: {
+			Label: Fire Warmth Detection Radius
+			Tooltip: Радиус в блоках, в котором ищутся горящие костры/факелы/кузницы для ускорения высыхания. Тайл дополнительно должен быть в прямой видимости - через стену не считается
+		}
+
+		WaterDripEnabled: {
+			Label: Water Drip Enabled
+			Tooltip: Показывать капли воды с мокрой брони/аксессуаров
+		}
+
+		DisabledItemSparkleEnabled: {
+			Label: Disabled Item Sparkle Enabled
+			Tooltip: Показывать морозный блеск на месте слота предмета, который прямо сейчас отключён из-за влажности (DisabledByWetness). По умолчанию выключено - можно включить, если захочется более явную индикацию отказавших вещей
 		}
 	}
 }

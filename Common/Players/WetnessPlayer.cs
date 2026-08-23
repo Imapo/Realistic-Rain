@@ -27,12 +27,13 @@ namespace WetnessMod.Common.Players
 
         private int campfireCheckCooldown = 0;
         private bool cachedNearCampfire = false;
+        private bool cachedNearLitTorch = false;
 
         public override void PreUpdate()
         {
             WetnessConfig config = ModContent.GetInstance<WetnessConfig>();
 
-            UpdateEnvironmentCache();
+            UpdateEnvironmentCache(config);
 
             bool inWater = Player.wet && !Player.lavaWet; // в лаве намокать нелогично
             bool raining = Main.raining && cachedOpenSky;
@@ -58,6 +59,15 @@ namespace WetnessMod.Common.Players
             float rainContributionBase = (raining && !hasUmbrellaProtection) 
                 ? config.RainWetRate * (inJungle ? 1.3f : 1f) 
                 : 0f;
+
+            // В зимнем биоме снег суше и рыхлее обычного дождя - меньше пропитывает одежду,
+            // легче стряхивается. Раньше разницы между лесом и снежным биомом не было
+            // вообще - теперь снег мочит в несколько раз МЕДЛЕННЕЕ, чем обычный дождь
+            // (множитель по умолчанию 0.3, то есть в ~3 раза медленнее).
+            if (rainContributionBase > 0f && Player.ZoneSnow)
+            {
+                rainContributionBase *= config.SnowWetRateMultiplier;
+            }
 
             // Сколько из трёх слотов тщеславия (шлем/грудь/ноги) сейчас заняты непромокаемой
             // одеждой (дождевик, рыбацкий костюм) - эта логика остаётся на случай, 
@@ -294,7 +304,7 @@ namespace WetnessMod.Common.Players
             return count;
         }
 
-        private void UpdateEnvironmentCache()
+        private void UpdateEnvironmentCache(WetnessConfig config)
         {
             if (openSkyCheckCooldown <= 0)
             {
@@ -308,7 +318,7 @@ namespace WetnessMod.Common.Players
 
             if (campfireCheckCooldown <= 0)
             {
-                cachedNearCampfire = IsNearCampfireOrWarmth();
+                ScanForNearbyFireSources(config, out cachedNearCampfire, out cachedNearLitTorch);
                 campfireCheckCooldown = 30;
             }
             else
@@ -364,21 +374,25 @@ namespace WetnessMod.Common.Players
         }
 
         /// <summary>
-        /// Проверяет, есть ли рядом горящий костёр, используя ванильный бафф "Уютный огонь".
-        /// Если у игрока есть этот бафф, значит игра сама определила, что рядом есть горящий костёр.
+        /// Ищет реально горящие костры/кузницы и факелы рядом с игроком. В отличие от
+        /// прежней версии (которая полагалась на ванильный бафф "Уютный огонь" - тот
+        /// срабатывает от костра почти в любой точке экрана, даже далеко или за стеной),
+        /// здесь используются два честных условия одновременно:
+        ///  1) реальное расстояние в блоках (FireWarmthDetectionRadius),
+        ///  2) прямая видимость без препятствий (Collision.CanHitLine) - костёр за стеной
+        ///     не считается, даже если он в радиусе.
+        /// А "горит ли конкретно этот тайл прямо сейчас" проверяется через
+        /// FireExtinguishSystem.IsExtinguishedByUs - то есть костёр/факел, потушенный
+        /// дождём или проводкой, греть не будет, даже если стоит совсем рядом.
+        /// Кузница/хефай считаются всегда "включёнными", так как у них нет состояния
+        /// вкл/выкл.
         /// </summary>
-        private bool IsNearCampfireOrWarmth()
+        private void ScanForNearbyFireSources(WetnessConfig config, out bool nearCampfire, out bool nearLitTorch)
         {
-            // Проверяем наличие баффа "Уютный огонь" (Cozy Fire, ID 88)
-            // Если бафф есть - рядом есть горящий костёр
-            if (Player.HasBuff(BuffID.Campfire))
-            {
-                return true;
-            }
+            nearCampfire = false;
+            nearLitTorch = false;
 
-            // Хефай / кузница тоже источник тепла, чтобы сушиться можно было и в базе
-            // Для них проверяем наличие вручную, так как у них нет баффа
-            int radiusTiles = 8;
+            int radiusTiles = config.FireWarmthDetectionRadius;
             int tileX = (int)(Player.Center.X / 16f);
             int tileY = (int)(Player.Center.Y / 16f);
 
@@ -397,21 +411,53 @@ namespace WetnessMod.Common.Players
                         continue;
                     }
 
-                    if (tile.TileType == TileID.Hellforge || tile.TileType == TileID.AdamantiteForge)
+                    bool isCampfireTile = tile.TileType == TileID.Campfire;
+                    bool isForgeTile = tile.TileType == TileID.Hellforge || tile.TileType == TileID.AdamantiteForge;
+                    bool isTorchTile = tile.TileType == TileID.Torches;
+
+                    if (!isCampfireTile && !isForgeTile && !isTorchTile)
                     {
-                        return true;
+                        continue;
+                    }
+
+                    // Кузница/хефай всегда "горят" - у них нет состояния вкл/выкл.
+                    // Костёр и факел можно потушить (дождём или проводкой) - тогда греть не будут.
+                    bool consideredLit = isForgeTile || !FireExtinguishSystem.IsExtinguishedByUs(x, y);
+                    if (!consideredLit)
+                    {
+                        continue;
+                    }
+
+                    Vector2 tileCenter = new Vector2(x * 16 + 8, y * 16 + 8);
+                    if (!Collision.CanHitLine(Player.Center, 1, 1, tileCenter, 1, 1))
+                    {
+                        continue; // перекрыто стеной - не считается, даже если в радиусе
+                    }
+
+                    if (isCampfireTile || isForgeTile)
+                    {
+                        nearCampfire = true;
+                    }
+                    else
+                    {
+                        nearLitTorch = true;
+                    }
+
+                    if (nearCampfire && nearLitTorch)
+                    {
+                        return; // нашли всё, что нужно - дальше сканировать незачем
                     }
                 }
             }
-
-            return false;
         }
 
         /// <summary>
         /// Итоговый множитель скорости высыхания зависит от места, где сейчас находится игрок.
         /// Порядок проверок важен: сначала самые "сильные" условия (ад, костёр рядом), потом
-        /// открытое небо (солнечно/пасмурно), и только затем — закрытые пространства, где
-        /// высыхание идёт заметно медленнее всего, особенно глубоко под землёй без костра.
+        /// открытое небо (солнечно/пасмурно) или закрытое помещение/подземелье, и только в
+        /// конце учитывается факел рядом - но лишь как "не хуже, чем сейчас": если на улице
+        /// и так солнечно (уже быстрее, чем от факела), факел ничего не меняет; а вот в
+        /// помещении или под землёй он даёт заметный плюс к тому, что было бы без него.
         /// </summary>
         private float GetDryMultiplier(WetnessConfig config)
         {
@@ -425,19 +471,29 @@ namespace WetnessMod.Common.Players
                 return config.CampfireDryMultiplier;
             }
 
+            float baseMultiplier;
             if (cachedOpenSky)
             {
                 // Main.cloudBGActive - это float (сила альфа-канала облачного фона), а не bool,
                 // поэтому сравниваем с порогом, а не отрицаем напрямую.
                 bool sunnyOutside = !Main.raining && Main.dayTime && Main.cloudBGActive <= 0f;
-                return sunnyOutside ? config.SunnyDryMultiplier : config.CloudyOrNightDryMultiplier;
+                baseMultiplier = sunnyOutside ? config.SunnyDryMultiplier : config.CloudyOrNightDryMultiplier;
+            }
+            else
+            {
+                // Нет открытого неба и нет костра рядом - это самые медленные варианты.
+                // Глубоко под землёй воздух застойный и сырой, поэтому сохнет ещё медленнее,
+                // чем просто в помещении/под крышей на поверхности.
+                bool underground = Player.position.Y > Main.worldSurface * 16.0;
+                baseMultiplier = underground ? config.UndergroundDryMultiplier : config.ShadeDryMultiplier;
             }
 
-            // Нет открытого неба и нет костра рядом - это самые медленные варианты.
-            // Глубоко под землёй воздух застойный и сырой, поэтому сохнет ещё медленнее,
-            // чем просто в помещении/под крышей на поверхности.
-            bool underground = Player.position.Y > Main.worldSurface * 16.0;
-            return underground ? config.UndergroundDryMultiplier : config.ShadeDryMultiplier;
+            if (cachedNearLitTorch && config.TorchDryMultiplier > baseMultiplier)
+            {
+                return config.TorchDryMultiplier;
+            }
+
+            return baseMultiplier;
         }
 
         /// <summary>
@@ -533,6 +589,8 @@ namespace WetnessMod.Common.Players
                 return;
             }
 
+            WetnessConfig config = ModContent.GetInstance<WetnessConfig>();
+
             // Собираем информацию о всех мокрых предметах (броня + аксессуары)
             List<(int slot, float wetness)> wetItems = new List<(int, float)>();
             
@@ -556,6 +614,19 @@ namespace WetnessMod.Common.Players
                 return;
             }
 
+            if (config.WaterDripEnabled)
+            {
+                SpawnWaterDrips(wetItems);
+            }
+
+            if (config.DisabledItemSparkleEnabled)
+            {
+                SpawnDisabledItemSparkles();
+            }
+        }
+
+        private void SpawnWaterDrips(List<(int slot, float wetness)> wetItems)
+        {
             // Ограничиваем количество капель за тик для производительности
             int maxDropsPerTick = 4;
             int dropsSpawned = 0;
@@ -592,6 +663,47 @@ namespace WetnessMod.Common.Players
                 drop.velocity.X += Main.rand.NextFloat(-0.3f, 0.3f);
 
                 dropsSpawned++;
+            }
+        }
+
+        /// <summary>
+        /// Морозный блеск на месте слота реально отключённого предмета - можно полностью
+        /// выключить через WetnessConfig.DisabledItemSparkleEnabled, если эффект не нравится
+        /// (обычные капли воды от WaterDripEnabled это не затрагивает).
+        /// </summary>
+        private void SpawnDisabledItemSparkles()
+        {
+            for (int i = 0; i < TrackedSlots; i++)
+            {
+                Item item = Player.armor[i];
+                if (item == null || item.IsAir)
+                {
+                    continue;
+                }
+
+                if (!item.GetGlobalItem<WetnessGlobalItem>().DisabledByWetness)
+                {
+                    continue;
+                }
+
+                if (Main.rand.NextFloat() >= 0.1f)
+                {
+                    continue;
+                }
+
+                Vector2 pos = GetDropPosition(i);
+                Dust malfunctionDust = Dust.NewDustDirect(
+                    pos,
+                    6, 6,
+                    DustID.Frost,
+                    0f, -0.6f,
+                    150,
+                    default,
+                    1.3f
+                );
+                malfunctionDust.noGravity = true;
+                malfunctionDust.velocity *= 0.3f;
+                malfunctionDust.fadeIn = 1.2f;
             }
         }
 
