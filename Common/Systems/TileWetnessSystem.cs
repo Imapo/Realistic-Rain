@@ -304,11 +304,17 @@ namespace WetnessMod.Common.Systems
         private void ConvertTile(int x, int y, ushort newType)
         {
             Main.tile[x, y].TileType = newType;
-            WorldGen.TileFrame(x, y, true);
+            // Важно использовать именно SquareTileFrame, а не TileFrame: обычный TileFrame
+            // пересчитывает "картинку" только у самого изменённого блока, из-за чего у его
+            // соседей остаётся неправильная стыковка краёв (видимая рамка). SquareTileFrame
+            // пересчитывает сам блок и его соседей одним вызовом.
+            WorldGen.SquareTileFrame(x, y, true);
 
             if (Main.netMode == NetmodeID.Server)
             {
-                NetMessage.SendTileSquare(-1, x, y, 1);
+                // Размер синхронизации увеличен до 3x3, чтобы соседние клиенты тоже
+                // получили обновлённые фреймы соседних блоков, а не только целевого.
+                NetMessage.SendTileSquare(-1, x, y, 3);
             }
 
             SpawnConvertDust(x, y, newType);

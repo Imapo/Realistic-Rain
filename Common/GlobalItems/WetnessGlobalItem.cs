@@ -2,52 +2,71 @@ using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ModLoader;
-using WetnessMod.Common.Players;
+using Terraria.ModLoader.IO;
+using WetnessMod.Common.Configs;
 
 namespace WetnessMod.Common.GlobalItems
 {
+    /// <summary>
+    /// Хранит влажность конкретного предмета (0..100) прямо на нём самом, а не в
+    /// отдельном массиве по номеру слота. Это принципиально: раньше влажность была
+    /// привязана к "слоту экипировки", и как только слот пустел, значение обнулялось -
+    /// то есть вещь, которую сняли, мгновенно "высыхала". Теперь влажность - это
+    /// свойство самого объекта Item, поэтому она сохраняется, куда бы предмет ни попал:
+    /// в инвентарь, в сундук, обратно в слот экипировки.
+    /// </summary>
     public class WetnessGlobalItem : GlobalItem
     {
-        public override bool InstancePerEntity => false;
+        public override bool InstancePerEntity => true;
+
+        public float Wetness;
+
+        public override GlobalItem Clone(Item item, Item itemClone)
+        {
+            WetnessGlobalItem clone = (WetnessGlobalItem)base.Clone(item, itemClone);
+            clone.Wetness = Wetness;
+            return clone;
+        }
+
+        public override void SaveData(Item item, TagCompound tag)
+        {
+            if (Wetness > 0.01f)
+            {
+                tag["wetness"] = Wetness;
+            }
+        }
+
+        public override void LoadData(Item item, TagCompound tag)
+        {
+            Wetness = tag.GetFloat("wetness");
+        }
 
         public override void ModifyTooltips(Item item, List<TooltipLine> tooltips)
         {
-            Player player = Main.LocalPlayer;
-            if (player == null)
+            if (Wetness <= 0.5f)
             {
-                return;
+                return; // почти сухое - не засоряем тултип
             }
 
-            WetnessPlayer wetnessPlayer = player.GetModPlayer<WetnessPlayer>();
-
-            int slot = FindEquippedSlot(player, item);
-            if (slot < 0)
-            {
-                return; // предмет не надет прямо сейчас — не показываем влажность
-            }
-
-            float wet = wetnessPlayer.Wetness[slot];
-            if (wet <= 0.5f)
-            {
-                return; // почти сухое — не засоряем тултип
-            }
+            WetnessConfig config = ModContent.GetInstance<WetnessConfig>();
+            bool isArmorPiece = item.headSlot > -1 || item.bodySlot > -1 || item.legSlot > -1;
 
             string status;
             Color color;
 
-            if (wet >= 100f)
+            if (Wetness >= 100f)
             {
-                status = slot < 3
+                status = isArmorPiece
                     ? "Полностью промокло: защита сильно снижена"
-                    : "Полностью промокло: эффект отключён";
+                    : "Полностью промокло: эффект отключён, пока не высохнет";
                 color = new Color(120, 170, 255);
             }
-            else if (wet >= 60f)
+            else if (Wetness >= 60f)
             {
                 status = "Сильно мокрое";
                 color = new Color(140, 190, 255);
             }
-            else if (wet >= 25f)
+            else if (Wetness >= 25f)
             {
                 status = "Влажное";
                 color = new Color(170, 210, 255);
@@ -58,38 +77,11 @@ namespace WetnessMod.Common.GlobalItems
                 color = new Color(200, 225, 255);
             }
 
-            TooltipLine line = new TooltipLine(Mod, "WetnessStatus", $"{status} ({wet:0}%)")
+            TooltipLine line = new TooltipLine(Mod, "WetnessStatus", $"{status} ({Wetness:0}%)")
             {
                 OverrideColor = color
             };
             tooltips.Add(line);
-        }
-
-        private int FindEquippedSlot(Player player, Item item)
-        {
-            for (int i = 0; i < WetnessPlayer.TrackedSlots; i++)
-            {
-                Item equipped = player.armor[i];
-                if (equipped == null || equipped.IsAir)
-                {
-                    continue;
-                }
-
-                // Прямое сравнение ссылок - самый надёжный вариант, но в некоторых версиях
-                // tModLoader/Terraria (особенно с системой лоадаутов) UI подсказки может
-                // получать не тот же самый объект Item, а его копию с идентичными данными.
-                // Поэтому дополнительно сверяем по типу+префиксу как страховку.
-                if (ReferenceEquals(equipped, item))
-                {
-                    return i;
-                }
-
-                if (equipped.type == item.type && equipped.prefix == item.prefix)
-                {
-                    return i;
-                }
-            }
-            return -1;
         }
     }
 }

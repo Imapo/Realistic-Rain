@@ -3,20 +3,21 @@ using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
 using WetnessMod.Common.Configs;
+using WetnessMod.Common.GlobalItems;
+using WetnessMod.Common.Systems;
 
 namespace WetnessMod.Common.Players
 {
     /// <summary>
-    /// Отслеживает влажность каждого функционального слота экипировки игрока:
-    /// индексы 0-2 = шлем/грудь/ноги, 3-9 = аксессуары (соответствует player.armor[0..9]).
-    /// Вещи в слотах тщеславия (10-19) намокают тоже, но косметически (без штрафов) —
-    /// сюда их можно добавить по аналогии, если понадобится.
+    /// Каждый тик обходит надетые предметы игрока (шлем/грудь/ноги + аксессуары,
+    /// player.armor[0..9]) и обновляет влажность, которая хранится прямо на объекте
+    /// каждого предмета (см. WetnessGlobalItem) — а не в отдельном массиве по номеру
+    /// слота. Это важно: значение остаётся с вещью, даже если её снять и убрать
+    /// в инвентарь — снятая мокрая вещь не станет сухой мгновенно.
     /// </summary>
     public class WetnessPlayer : ModPlayer
     {
         public const int TrackedSlots = 10;
-
-        public float[] Wetness = new float[TrackedSlots];
 
         // Кешируем результат "открытого неба" раз в несколько тиков — это недешёвая проверка,
         // а погода не меняется мгновенно, так что легкая задержка незаметна.
@@ -25,11 +26,6 @@ namespace WetnessMod.Common.Players
 
         private int campfireCheckCooldown = 0;
         private bool cachedNearCampfire = false;
-
-        public override void ResetEffects()
-        {
-            // Ничего не сбрасываем здесь — влажность должна сохраняться между кадрами.
-        }
 
         public override void PreUpdate()
         {
@@ -57,44 +53,41 @@ namespace WetnessMod.Common.Players
 
             for (int i = 0; i < TrackedSlots; i++)
             {
-                if (Player.armor[i] == null || Player.armor[i].IsAir)
+                Item equipped = Player.armor[i];
+                if (equipped == null || equipped.IsAir)
                 {
-                    // Пустой слот — влажность сбрасывается, чтобы при надевании новой вещи
-                    // она не была "уже мокрой" от предыдущего предмета.
-                    Wetness[i] = 0f;
-                    continue;
+                    continue; // пустой слот — нечего обновлять
                 }
 
-                float slotWet = Wetness[i];
+                WetnessGlobalItem wetnessData = equipped.GetGlobalItem<WetnessGlobalItem>();
+                float wet = wetnessData.Wetness;
 
                 if (wetDelta > 0f)
                 {
-                    slotWet += wetDelta;
+                    wet += wetDelta;
                 }
 
                 // Фоновая влажность джунглей действует независимо от дождя, но имеет потолок
                 if (inJungle && !raining && !inWater)
                 {
-                    if (slotWet < config.JungleAmbientWetCap)
+                    if (wet < config.JungleAmbientWetCap)
                     {
-                        slotWet += config.JungleAmbientWetRate;
-                        if (slotWet > config.JungleAmbientWetCap)
+                        wet += config.JungleAmbientWetRate;
+                        if (wet > config.JungleAmbientWetCap)
                         {
-                            slotWet = config.JungleAmbientWetCap;
+                            wet = config.JungleAmbientWetCap;
                         }
                     }
                 }
 
-                // Высыхание применяется всегда, но если предмет активно намокает быстрее,
-                // чем сохнет, итоговый баланс всё равно уйдёт в плюс — то есть в дождь
-                // высыхание можно условно "перекрыть", просто не давая дополнительный dry бонус.
+                // Высыхание применяется, только если сейчас ничего не мочит вещь активно —
+                // иначе дождь/вода "перекрывали" бы высыхание, а не наоборот.
                 if (wetDelta <= 0f)
                 {
-                    slotWet -= dryDelta;
+                    wet -= dryDelta;
                 }
 
-                slotWet = MathHelper.Clamp(slotWet, 0f, 100f);
-                Wetness[i] = slotWet;
+                wetnessData.Wetness = MathHelper.Clamp(wet, 0f, 100f);
             }
         }
 
@@ -145,11 +138,6 @@ namespace WetnessMod.Common.Players
                 }
 
                 Tile tile = Main.tile[tileX, y];
-                if (tile == null)
-                {
-                    continue;
-                }
-
                 if (tile.HasTile && Main.tileSolid[tile.TileType] && !Main.tileSolidTop[tile.TileType])
                 {
                     return false; // нашли крышу/потолок над головой
@@ -179,13 +167,17 @@ namespace WetnessMod.Common.Players
                     }
 
                     Tile tile = Main.tile[x, y];
-                    if (tile == null || !tile.HasTile)
+                    if (!tile.HasTile)
                     {
                         continue;
                     }
 
-                    // TileID.Campfire горит, если frameX < 66 (потушенный костёр имеет другой кадр)
-                    if (tile.TileType == TileID.Campfire && tile.TileFrameX < 66)
+                    // Раньше здесь была проверка tile.TileFrameX < 66 как признак "костёр горит" -
+                    // это было непроверенное предположение о формате кадров спрайта, и оно
+                    // могло быть попросту неверным. Правильный способ узнать, что конкретный
+                    // костёр сейчас потушен - спросить у FireExtinguishSystem, которая явно
+                    // отслеживает потушенные ею тайлы через штатный игровой API переключения.
+                    if (tile.TileType == TileID.Campfire && !FireExtinguishSystem.IsExtinguishedByUs(x, y))
                     {
                         return true;
                     }
@@ -246,7 +238,7 @@ namespace WetnessMod.Common.Players
                     continue;
                 }
 
-                float wetFraction = Wetness[i] / 100f;
+                float wetFraction = armorPiece.GetGlobalItem<WetnessGlobalItem>().Wetness / 100f;
                 int loss = (int)(armorPiece.defense * wetFraction * config.MaxArmorDefenseLossFraction);
                 if (loss > 0)
                 {
@@ -256,7 +248,7 @@ namespace WetnessMod.Common.Players
         }
 
         /// <summary>
-        /// Проверка "аксессуар в этом слоте сейчас отключён из-за влажности".
+        /// Проверка "предмет сейчас отключён из-за влажности".
         /// Полноценно генерически отключить эффект ЛЮБОГО ванильного аксессуара средствами
         /// tModLoader нельзя — их эффекты применяются напрямую в коде самой игры через
         /// публичные поля Player (canFly, waterWalk, doubleJump и т.д.), и tModLoader не даёт
@@ -266,10 +258,10 @@ namespace WetnessMod.Common.Players
         ///  - для ключевых ванильных аксессуаров ниже реализован набор "ручных" сбросов полей
         ///    как рабочий пример, который можно расширять.
         /// </summary>
-        public bool IsSlotDisabledByWetness(int slot)
+        public static bool IsItemDisabledByWetness(Item item)
         {
             WetnessConfig config = ModContent.GetInstance<WetnessConfig>();
-            return slot >= 3 && slot < TrackedSlots && Wetness[slot] >= config.AccessoryDisableThreshold;
+            return item.GetGlobalItem<WetnessGlobalItem>().Wetness >= config.AccessoryDisableThreshold;
         }
 
         /// <summary>
@@ -281,13 +273,13 @@ namespace WetnessMod.Common.Players
         {
             for (int i = 3; i < TrackedSlots; i++)
             {
-                if (!IsSlotDisabledByWetness(i))
+                Item accessory = Player.armor[i];
+                if (accessory == null || accessory.IsAir)
                 {
                     continue;
                 }
 
-                Item accessory = Player.armor[i];
-                if (accessory == null || accessory.IsAir)
+                if (!IsItemDisabledByWetness(accessory))
                 {
                     continue;
                 }
@@ -310,10 +302,6 @@ namespace WetnessMod.Common.Players
         }
 
         /// <summary>
-        /// Чисто визуальный бонус: с намокшей брони капает вода, а на полностью мокрой
-        /// экипировке персонаж слегка "поблёскивает" каплями. Работает только на клиенте.
-        /// </summary>
-        /// <summary>
         /// Небольшой бонус сверху задания: во время дождя грязь под ногами немного
         /// замедляет — чтобы превращение земли в грязь ощущалось не только визуально.
         /// </summary>
@@ -333,13 +321,16 @@ namespace WetnessMod.Common.Players
             }
 
             Tile below = Main.tile[tileX, tileY];
-            if (below != null && below.HasTile && below.TileType == TileID.Mud)
+            if (below.HasTile && below.TileType == TileID.Mud)
             {
                 Player.moveSpeed *= 0.85f;
                 Player.maxRunSpeed *= 0.85f;
             }
         }
 
+        /// <summary>
+        /// Чисто визуальный бонус: с намокшей брони капает вода. Работает только на клиенте.
+        /// </summary>
         public override void PostUpdate()
         {
             if (Main.dedServ)
@@ -350,9 +341,16 @@ namespace WetnessMod.Common.Players
             float maxWet = 0f;
             for (int i = 0; i < 3; i++)
             {
-                if (Wetness[i] > maxWet)
+                Item armorPiece = Player.armor[i];
+                if (armorPiece == null || armorPiece.IsAir)
                 {
-                    maxWet = Wetness[i];
+                    continue;
+                }
+
+                float wet = armorPiece.GetGlobalItem<WetnessGlobalItem>().Wetness;
+                if (wet > maxWet)
+                {
+                    maxWet = wet;
                 }
             }
 

@@ -104,5 +104,44 @@ namespace WetnessMod.Common.Configs
         [DefaultValue(0.4f)]
         [Tooltip("Бонус к скорости намокания, если соседний блок на той же глубине уже стал грязью (для эффекта расползающегося пятна)")]
         public float TileNeighborSpreadBonus;
+
+        [Header("FireExtinguish")]
+
+        [DefaultValue(true)]
+        [Tooltip("Включает тушение факелов и костров под открытым дождём")]
+        public bool FireExtinguishEnabled;
+
+        [Range(1, 200)]
+        [DefaultValue(30)]
+        [Tooltip("Радиус в блоках вокруг игрока (и по X, и по Y), в котором отслеживаются факелы/костры")]
+        public int FireExtinguishRangeX;
+
+        [Range(1, 200)]
+        [DefaultValue(10)]
+        [Tooltip("Сколько случайных факелов/костров за тик пытается потушить/разжечь система")]
+        public int FireMaxAttemptsPerTick;
+
+        [Range(1, 200)]
+        [DefaultValue(40)]
+        [Tooltip("На сколько блоков вверх проверяется наличие крыши над факелом/костром (больше = точнее, но дороже)")]
+        public int FireMaxSkyCheckHeight;
+
+        [Range(0f, 1f)]
+        [DefaultValue(0.02f)]
+        [Tooltip("Базовый шанс потухнуть за одну попытку при максимальной силе дождя")]
+        public float FireBaseExtinguishChance;
+
+        [DefaultValue(true)]
+        [Tooltip("Пускать дым/пар при тушении")]
+        public bool FireSpawnDust;
+
+        [DefaultValue(true)]
+        [Tooltip("Разрешить потухшим факелам/костру самим разгораться заново, когда дождь закончился или их накрыло крышей")]
+        public bool FireAutoRelight;
+
+        [Range(0f, 1f)]
+        [DefaultValue(0.05f)]
+        [Tooltip("Шанс разжечься заново за одну попытку, когда условия позволяют")]
+        public float FireRelightChance;
     }
 }
