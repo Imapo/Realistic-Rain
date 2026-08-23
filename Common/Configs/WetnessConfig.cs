@@ -32,41 +32,56 @@ namespace WetnessMod.Common.Configs
         [Header("Drying")]
 
         [Range(0f, 5f)]
-        [DefaultValue(0.05f)]
-        [Tooltip("Базовая скорость высыхания (% в тик), дальше умножается на модификаторы погоды/места")]
+        [DefaultValue(0.018f)]
+        [Tooltip("Базовая скорость высыхания (% в тик), дальше умножается на модификаторы погоды/места. Специально снижена, чтобы полное высыхание ощутимо занимало время, а не пару секунд")]
         public float BaseDryRate;
 
         [Range(0.1f, 10f)]
-        [DefaultValue(3f)]
+        [DefaultValue(2.5f)]
+        [Tooltip("Множитель высыхания на открытом небе, ясно, днём, без дождя - самый быстрый вариант")]
         public float SunnyDryMultiplier;
 
         [Range(0.1f, 10f)]
-        [DefaultValue(0.4f)]
+        [DefaultValue(0.5f)]
+        [Tooltip("Множитель высыхания на открытом небе, но ночью/пасмурно (солнца нет, но воздух свежий)")]
         public float CloudyOrNightDryMultiplier;
 
         [Range(0.1f, 10f)]
-        [DefaultValue(0.15f)]
+        [DefaultValue(0.2f)]
+        [Tooltip("Множитель высыхания в помещении/под крышей на поверхности (нет открытого неба, нет костра рядом, но и не глубоко под землёй)")]
+        public float ShadeDryMultiplier;
+
+        [Range(0.1f, 10f)]
+        [DefaultValue(0.08f)]
+        [Tooltip("Множитель высыхания глубоко под землёй без костра рядом - самый медленный вариант из всех (застоявшийся сырой воздух)")]
         public float UndergroundDryMultiplier;
 
         [Range(0.1f, 10f)]
         [DefaultValue(3f)]
+        [Tooltip("Множитель высыхания рядом с зажжённым костром/кузницей/хеллфорджем - перебивает все остальные условия")]
         public float CampfireDryMultiplier;
 
         [Range(0.1f, 10f)]
         [DefaultValue(3f)]
+        [Tooltip("Множитель высыхания в аду (там дождя не бывает, а жара сушит быстро)")]
         public float UnderworldDryMultiplier;
 
         [Header("EquipmentEffects")]
 
         [Range(0f, 1f)]
         [DefaultValue(0.4f)]
-        [Tooltip("Максимальная доля защиты, которую теряет полностью мокрая броня")]
+        [Tooltip("Максимальная доля защиты, которую теряет броня, если она 'сдалась' из-за влажности (см. WetDisableChancePerSecond)")]
         public float MaxArmorDefenseLossFraction;
 
-        [Range(1f, 100f)]
-        [DefaultValue(100f)]
-        [Tooltip("Порог влажности, при котором аксессуар отключается")]
+        [Range(1f, 99f)]
+        [DefaultValue(50f)]
+        [Tooltip("Влажность (%), после которой у брони/аксессуара начинает появляться шанс полностью отключиться из-за сырости. Ниже этого порога вещь работает как обычно")]
         public float AccessoryDisableThreshold;
+
+        [Range(0f, 1f)]
+        [DefaultValue(0.15f)]
+        [Tooltip("Шанс 'сдаться' и отключиться из-за влажности за одну секунду при 100% влажности. У порога (AccessoryDisableThreshold) шанс почти нулевой и линейно растёт до этого значения к 100% влажности. Как только вещь отключилась - она не заработает обратно, пока не высохнет полностью (0%), даже если влажность потом снова упадёт ниже порога")]
+        public float WetDisableChancePerSecond;
 
         [Header("SoilToMud")]
 

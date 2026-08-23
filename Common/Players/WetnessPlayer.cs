@@ -63,9 +63,14 @@ namespace WetnessMod.Common.Players
                 float wet = wetnessData.Wetness;
                 float itemMultiplier = wetnessData.GetRateMultiplier();
 
+                // Небольшой случайный "шум" на каждый тик — чтобы даже у пары одинаковых
+                // вещей намокание/высыхание ощущалось неравномерно, а не ровной линией,
+                // и чтобы не совпадало один-в-один с персональным множителем предмета.
+                float tickNoise = Main.rand.NextFloat(0.8f, 1.2f);
+
                 if (wetDelta > 0f)
                 {
-                    wet += wetDelta * itemMultiplier;
+                    wet += wetDelta * itemMultiplier * tickNoise;
                 }
 
                 // Фоновая влажность джунглей действует независимо от дождя, но имеет потолок
@@ -73,7 +78,7 @@ namespace WetnessMod.Common.Players
                 {
                     if (wet < config.JungleAmbientWetCap)
                     {
-                        wet += config.JungleAmbientWetRate * itemMultiplier;
+                        wet += config.JungleAmbientWetRate * itemMultiplier * tickNoise;
                         if (wet > config.JungleAmbientWetCap)
                         {
                             wet = config.JungleAmbientWetCap;
@@ -85,13 +90,58 @@ namespace WetnessMod.Common.Players
                 // иначе дождь/вода "перекрывали" бы высыхание, а не наоборот.
                 if (wetDelta <= 0f)
                 {
-                    wet -= dryDelta * itemMultiplier;
+                    wet -= dryDelta * itemMultiplier * tickNoise;
                 }
 
-                wetnessData.Wetness = MathHelper.Clamp(wet, 0f, 100f);
+                wet = MathHelper.Clamp(wet, 0f, 100f);
+                wetnessData.Wetness = wet;
+
+                UpdateWetDisableState(config, wetnessData, wet);
             }
 
             HideWetAccessories(config);
+        }
+
+        /// <summary>
+        /// Обновляет "залипающее" состояние отключения из-за влажности (гистерезис).
+        /// Раньше вещь считалась отключённой ровно тогда, когда текущая влажность >= порога,
+        /// и поэтому включалась обратно мгновенно, как только влажность опускалась чуть ниже —
+        /// в частности, сразу же после конца дождя, что и было основной жалобой на старое
+        /// поведение. Теперь это два разных события:
+        ///
+        /// 1) Пока вещь ещё не отключена и её влажность выше AccessoryDisableThreshold (по
+        ///    умолчанию 50%), каждую секунду есть шанс, что она "сдастся" и перестанет
+        ///    работать. Чем ближе влажность к 100%, тем этот шанс выше (линейно от 0 у порога
+        ///    до WetDisableChancePerSecond у 100%).
+        /// 2) Если вещь уже отключена, она остаётся отключённой независимо от того, как
+        ///    дальше колеблется текущая влажность (в том числе если дождь кончился и
+        ///    влажность пошла вниз) — и включается обратно только тогда, когда высохнет
+        ///    полностью, то есть влажность дойдёт до 0.
+        /// </summary>
+        private void UpdateWetDisableState(WetnessConfig config, WetnessGlobalItem data, float wetness)
+        {
+            if (data.DisabledByWetness)
+            {
+                if (wetness <= 0.01f)
+                {
+                    data.DisabledByWetness = false;
+                }
+                return; // пока не высохло полностью — не включаем обратно
+            }
+
+            if (wetness <= config.AccessoryDisableThreshold)
+            {
+                return; // ещё недостаточно мокрая, чтобы вообще рисковать отключением
+            }
+
+            float range = System.Math.Max(1f, 100f - config.AccessoryDisableThreshold);
+            float fraction = (wetness - config.AccessoryDisableThreshold) / range; // 0..1
+            float chancePerTick = config.WetDisableChancePerSecond * fraction / 60f; // тиков в секунде
+
+            if (Main.rand.NextFloat() < chancePerTick)
+            {
+                data.DisabledByWetness = true;
+            }
         }
 
         // Сюда на время прячутся мокрые аксессуары, чтобы ванильный код их "не увидел"
@@ -268,6 +318,12 @@ namespace WetnessMod.Common.Players
             return false;
         }
 
+        /// <summary>
+        /// Итоговый множитель скорости высыхания зависит от места, где сейчас находится игрок.
+        /// Порядок проверок важен: сначала самые "сильные" условия (ад, костёр рядом), потом
+        /// открытое небо (солнечно/пасмурно), и только затем — закрытые пространства, где
+        /// высыхание идёт заметно медленнее всего, особенно глубоко под землёй без костра.
+        /// </summary>
         private float GetDryMultiplier(WetnessConfig config)
         {
             if (Player.ZoneUnderworldHeight)
@@ -280,21 +336,19 @@ namespace WetnessMod.Common.Players
                 return config.CampfireDryMultiplier;
             }
 
-            bool underground = !cachedOpenSky && Player.position.Y > Main.worldSurface * 16.0;
-            if (underground)
+            if (cachedOpenSky)
             {
-                return config.UndergroundDryMultiplier;
+                // Main.cloudBGActive - это float (сила альфа-канала облачного фона), а не bool,
+                // поэтому сравниваем с порогом, а не отрицаем напрямую.
+                bool sunnyOutside = !Main.raining && Main.dayTime && Main.cloudBGActive <= 0f;
+                return sunnyOutside ? config.SunnyDryMultiplier : config.CloudyOrNightDryMultiplier;
             }
 
-            // Main.cloudBGActive - это float (сила альфа-канала облачного фона), а не bool,
-            // поэтому сравниваем с порогом, а не отрицаем напрямую.
-            bool sunnyOutside = cachedOpenSky && !Main.raining && Main.dayTime && Main.cloudBGActive <= 0f;
-            if (sunnyOutside)
-            {
-                return config.SunnyDryMultiplier;
-            }
-
-            return config.CloudyOrNightDryMultiplier;
+            // Нет открытого неба и нет костра рядом - это самые медленные варианты.
+            // Глубоко под землёй воздух застойный и сырой, поэтому сохнет ещё медленнее,
+            // чем просто в помещении/под крышей на поверхности.
+            bool underground = Player.position.Y > Main.worldSurface * 16.0;
+            return underground ? config.UndergroundDryMultiplier : config.ShadeDryMultiplier;
         }
 
         /// <summary>
@@ -314,8 +368,24 @@ namespace WetnessMod.Common.Players
                     continue;
                 }
 
-                float wetFraction = armorPiece.GetGlobalItem<WetnessGlobalItem>().Wetness / 100f;
-                int loss = (int)(armorPiece.defense * wetFraction * config.MaxArmorDefenseLossFraction);
+                WetnessGlobalItem data = armorPiece.GetGlobalItem<WetnessGlobalItem>();
+
+                int loss;
+                if (data.DisabledByWetness)
+                {
+                    // Броня "сдалась" из-за сырости - штраф закреплён на максимуме и не
+                    // плавает вместе с текущей влажностью, пока вещь не высохнет полностью
+                    // (см. UpdateWetDisableState) - точно так же, как отключённый аксессуар.
+                    loss = (int)(armorPiece.defense * config.MaxArmorDefenseLossFraction);
+                }
+                else
+                {
+                    // Пока порог не пройден или броне "повезло" не сдаться - штраф плавно
+                    // растёт вместе с текущей влажностью, как и раньше.
+                    float wetFraction = data.Wetness / 100f;
+                    loss = (int)(armorPiece.defense * wetFraction * config.MaxArmorDefenseLossFraction);
+                }
+
                 if (loss > 0)
                 {
                     Player.statDefense -= loss;
@@ -327,12 +397,12 @@ namespace WetnessMod.Common.Players
 
         /// <summary>
         /// Проверка "предмет сейчас отключён из-за влажности". Используется и для решения
-        /// прятать ли аксессуар в HideWetAccessories, и для показа статуса в тултипе.
+        /// прятать ли аксессуар в HideWetAccessories, и для показа статуса в тултипе/иконке.
+        /// Это больше не прямое сравнение "Wetness >= порог" - см. UpdateWetDisableState.
         /// </summary>
         public static bool IsItemDisabledByWetness(Item item)
         {
-            WetnessConfig config = ModContent.GetInstance<WetnessConfig>();
-            return item.GetGlobalItem<WetnessGlobalItem>().Wetness >= config.AccessoryDisableThreshold;
+            return item.GetGlobalItem<WetnessGlobalItem>().DisabledByWetness;
         }
 
         /// <summary>

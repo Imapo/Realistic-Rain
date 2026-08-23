@@ -1,40 +1,5 @@
 Configs: {
 	WetnessConfig: {
-		FireSpawnDust: {
-			Tooltip: Показывать ли частицы дыма/пара при тушении
-			Label: Fire Spawn Dust
-		}
-
-		FireDropTorchItem: {
-			Tooltip: Возвращать ли предмет факела при его разрушении дождём (у костра предмет не выпадает - он просто гаснет, как от рычага)
-			Label: Fire Drop Torch Item
-		}
-
-		FireBaseExtinguishChance: {
-			Tooltip: Базовый шанс потушить факел/костёр за одну удачную проверку под дождём
-			Label: Fire Base Extinguish Chance
-		}
-
-		FireMaxAttemptsPerTick: {
-			Tooltip: Сколько случайных тайлов-кандидатов проверяется за один тик на игрока (как в TileWetnessSystem)
-			Label: Fire Max Attempts Per Tick
-		}
-
-		FireMaxSkyCheckHeight: {
-			Tooltip: Максимальная высота проверки открытого неба вверх от очага огня (ограничивает нагрузку на глубоких картах)
-			Label: Fire Max Sky Check Height
-		}
-
-		FireExtinguishRangeX: {
-			Tooltip: Радиус в блоках вокруг игрока, в котором отслеживаются факелы/костры для тушения
-			Label: Fire Extinguish Range X
-		}
-
-		FireExtinguishEnabled: {
-			Tooltip: Включает тушение факелов/костров дождём
-			Label: Fire Extinguish Enabled
-		}
-
 		TileNeighborSpreadBonus: {
 			Tooltip: Бонус к скорости намокания, если соседний блок на той же глубине уже стал грязью (для эффекта расползающегося пятна)
 			Label: Tile Neighbor Spread Bonus
@@ -71,11 +36,11 @@ Configs: {
 		}
 
 		Headers: {
-			FireExtinguish: Fire Extinguish Header
 			SoilToMud: Soil To Mud Header
 			EquipmentEffects: Equipment Effects Header
 			Drying: Drying Header
 			Wetting: Wetting Header
+			FireExtinguish: Fire Extinguish Header
 		}
 
 		AccessoryDisableThreshold: {
@@ -149,5 +114,55 @@ Configs: {
 		}
 
 		DisplayName: Wetness Config
+
+		FireExtinguishEnabled: {
+			Label: Fire Extinguish Enabled
+			Tooltip: Включает тушение факелов и костров под открытым дождём
+		}
+
+		FireExtinguishRangeX: {
+			Label: Fire Extinguish Range X
+			Tooltip: Радиус в блоках вокруг игрока (и по X, и по Y), в котором отслеживаются факелы/костры
+		}
+
+		FireMaxAttemptsPerTick: {
+			Label: Fire Max Attempts Per Tick
+			Tooltip: Сколько случайных факелов/костров за тик пытается потушить/разжечь система
+		}
+
+		FireMaxSkyCheckHeight: {
+			Label: Fire Max Sky Check Height
+			Tooltip: На сколько блоков вверх проверяется наличие крыши над факелом/костром (больше = точнее, но дороже)
+		}
+
+		FireBaseExtinguishChance: {
+			Label: Fire Base Extinguish Chance
+			Tooltip: Базовый шанс потухнуть за одну попытку при максимальной силе дождя
+		}
+
+		FireSpawnDust: {
+			Label: Fire Spawn Dust
+			Tooltip: Пускать дым/пар при тушении
+		}
+
+		FireAutoRelight: {
+			Label: Fire Auto Relight
+			Tooltip: Разрешить потухшим факелам/костру самим разгораться заново, когда дождь закончился или их накрыло крышей
+		}
+
+		FireRelightChance: {
+			Label: Fire Relight Chance
+			Tooltip: Шанс разжечься заново за одну попытку, когда условия позволяют
+		}
+
+		FireExtinguishRate: {
+			Label: Fire Extinguish Rate
+			Tooltip: Сколько 'прогресса тушения' (0-100) набегает за одну успешную попытку при максимальной силе дождя - меньше значение = дольше и разнообразнее по времени гаснут факелы/костры
+		}
+
+		FireExtinguishCooldownRate: {
+			Label: Fire Extinguish Cooldown Rate
+			Tooltip: Как быстро остывает накопленный прогресс тушения, если дождь прекратился или тайл оказался под крышей, не успев погаснуть
+		}
 	}
 }
