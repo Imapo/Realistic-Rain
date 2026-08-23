@@ -83,6 +83,28 @@ namespace WetnessMod.Common.Configs
         [Tooltip("Шанс 'сдаться' и отключиться из-за влажности за одну секунду при 100% влажности. У порога (AccessoryDisableThreshold) шанс почти нулевой и линейно растёт до этого значения к 100% влажности. Как только вещь отключилась - она не заработает обратно, пока не высохнет полностью (0%), даже если влажность потом снова упадёт ниже порога")]
         public float WetDisableChancePerSecond;
 
+        [Header("RainProtection")]
+
+        [Range(0f, 1f)]
+        [DefaultValue(0.33f)]
+        [Tooltip("Насколько снижается вклад дождя в намокание БРОНИ за каждую надетую непромокаемую вещь (Rain Hat/Coat, Angler Hat/Vest/Pants и т.п.) в слотах шлема/тела/ног")]
+        public float RainProtectionPerPieceArmor;
+
+        [Range(0f, 1f)]
+        [DefaultValue(0.99f)]
+        [Tooltip("Максимальное суммарное снижение вклада дождя в намокание брони (при всех 3 непромокаемых предметах)")]
+        public float RainProtectionMaxArmor;
+
+        [Range(0f, 1f)]
+        [DefaultValue(0.30f)]
+        [Tooltip("Насколько снижается вклад дождя в намокание АКСЕССУАРОВ за каждую надетую непромокаемую вещь в слотах брони")]
+        public float RainProtectionPerPieceAccessory;
+
+        [Range(0f, 1f)]
+        [DefaultValue(0.90f)]
+        [Tooltip("Максимальное суммарное снижение вклада дождя в намокание аксессуаров (при всех 3 непромокаемых предметах)")]
+        public float RainProtectionMaxAccessory;
+
         [Header("SoilToMud")]
 
         [Range(1, 200)]

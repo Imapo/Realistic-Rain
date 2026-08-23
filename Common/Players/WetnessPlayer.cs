@@ -37,16 +37,19 @@ namespace WetnessMod.Common.Players
             bool raining = Main.raining && cachedOpenSky;
             bool inJungle = Player.ZoneJungle;
 
-            float wetDelta = 0f;
-            if (inWater)
-            {
-                wetDelta += config.WaterWetRate;
-            }
-            if (raining)
-            {
-                // Дождь в джунглях мочит немного сильнее — гуще листва, крупнее капли
-                wetDelta += config.RainWetRate * (inJungle ? 1.3f : 1f);
-            }
+            // Вклад от погружения в воду и от дождя считаем ОТДЕЛЬНО: непромокаемая одежда
+            // (плащ, рыбацкий костюм и т.д.) защищает именно от дождя, а не от того, что
+            // персонаж с головой залез в озеро - защита от дождя на подводное намокание
+            // не распространяется.
+            float waterContribution = inWater ? config.WaterWetRate : 0f;
+            float rainContributionBase = raining ? config.RainWetRate * (inJungle ? 1.3f : 1f) : 0f;
+
+            // Сколько из трёх слотов брони (шлем/грудь/ноги) сейчас заняты непромокаемой
+            // одеждой - от этого зависит, насколько сильно ослабляется вклад дождя отдельно
+            // для брони и отдельно для аксессуаров (см. GetRainProofArmorPieceCount).
+            int rainProofPieces = GetRainProofArmorPieceCount();
+            float armorRainReduction = System.Math.Min(config.RainProtectionMaxArmor, config.RainProtectionPerPieceArmor * rainProofPieces);
+            float accessoryRainReduction = System.Math.Min(config.RainProtectionMaxAccessory, config.RainProtectionPerPieceAccessory * rainProofPieces);
 
             float dryMultiplier = GetDryMultiplier(config);
             float dryDelta = config.BaseDryRate * dryMultiplier;
@@ -68,12 +71,18 @@ namespace WetnessMod.Common.Players
                 // и чтобы не совпадало один-в-один с персональным множителем предмета.
                 float tickNoise = Main.rand.NextFloat(0.8f, 1.2f);
 
+                bool isArmorSlot = i < 3;
+                float rainReduction = isArmorSlot ? armorRainReduction : accessoryRainReduction;
+                float rainContribution = rainContributionBase * (1f - rainReduction);
+                float wetDelta = waterContribution + rainContribution;
+
                 if (wetDelta > 0f)
                 {
                     wet += wetDelta * itemMultiplier * tickNoise;
                 }
 
                 // Фоновая влажность джунглей действует независимо от дождя, но имеет потолок
+                // (непромокаемая одежда от дождя не защищает от общей сырости джунглей)
                 if (inJungle && !raining && !inWater)
                 {
                     if (wet < config.JungleAmbientWetCap)
@@ -87,7 +96,8 @@ namespace WetnessMod.Common.Players
                 }
 
                 // Высыхание применяется, только если сейчас ничего не мочит вещь активно —
-                // иначе дождь/вода "перекрывали" бы высыхание, а не наоборот.
+                // иначе дождь/вода "перекрывали" бы высыхание, а не наоборот. Непромокаемая
+                // одежда на скорость высыхания сознательно никак не влияет.
                 if (wetDelta <= 0f)
                 {
                     wet -= dryDelta * itemMultiplier * tickNoise;
@@ -214,6 +224,73 @@ namespace WetnessMod.Common.Players
                 hiddenAccessories[i] = null;
                 hidingPlaceholders[i] = null;
             }
+        }
+
+        // --- Непромокаемая одежда ---
+        //
+        // Список специально основан на реальных вещах из игры, которые тематически
+        // "не промокают": дождевой костюм (Rain Hat/Rain Coat) и рыбацкий костюм от
+        // Рыбака (Angler Hat/Vest/Pants - три предмета ровно на все три слота).
+        // Зонтичная шляпа (Umbrella Hat) тоже добавлена в головной убор - тематически
+        // подходит, хотя это чисто косметический предмет без защиты.
+        //
+        // Проверяются именно СЛОТЫ ТЩЕСЛАВИЯ (player.armor[10]=голова, [11]=тело, [12]=ноги),
+        // а не боевая броня. Это принципиально: никто не станет снимать нормальную броню
+        // с реальной защитой только ради того, чтобы не намокнуть под дождём - а слоты
+        // тщеславия для того и существуют, чтобы носить что-то "для вида" поверх настоящей
+        // экипировки без потери характеристик. Здесь этот же принцип используется для
+        // получения защиты от дождя без каких-либо жертв в боевой броне.
+        private static readonly System.Collections.Generic.HashSet<int> RainProofHeadItems = new()
+        {
+            ItemID.RainHat,
+            ItemID.UmbrellaHat,
+            ItemID.AnglerHat,
+        };
+
+        private static readonly System.Collections.Generic.HashSet<int> RainProofBodyItems = new()
+        {
+            ItemID.RainCoat,
+            ItemID.AnglerVest,
+        };
+
+        private static readonly System.Collections.Generic.HashSet<int> RainProofLegItems = new()
+        {
+            ItemID.AnglerPants,
+        };
+
+        // Индексы слотов тщеславия в player.armor: 10=голова, 11=тело, 12=ноги
+        // (0-2 - боевая броня, 3-9 - аксессуары, 10-12 - тщеславие-броня, 13-19 - тщеславие-аксессуары).
+        private const int VanityHeadSlot = 10;
+        private const int VanityBodySlot = 11;
+        private const int VanityLegSlot = 12;
+
+        /// <summary>
+        /// Считает, сколько из трёх слотов ТЩЕСЛАВИЯ (голова/тело/ноги) сейчас заняты
+        /// непромокаемой одеждой из соответствующего списка. Возвращает 0..3.
+        /// </summary>
+        private int GetRainProofArmorPieceCount()
+        {
+            int count = 0;
+
+            Item head = Player.armor[VanityHeadSlot];
+            if (head != null && !head.IsAir && RainProofHeadItems.Contains(head.type))
+            {
+                count++;
+            }
+
+            Item body = Player.armor[VanityBodySlot];
+            if (body != null && !body.IsAir && RainProofBodyItems.Contains(body.type))
+            {
+                count++;
+            }
+
+            Item legs = Player.armor[VanityLegSlot];
+            if (legs != null && !legs.IsAir && RainProofLegItems.Contains(legs.type))
+            {
+                count++;
+            }
+
+            return count;
         }
 
         private void UpdateEnvironmentCache()

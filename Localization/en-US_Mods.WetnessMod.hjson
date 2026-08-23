@@ -41,6 +41,7 @@ Configs: {
 			Drying: Drying Header
 			Wetting: Wetting Header
 			FireExtinguish: Fire Extinguish Header
+			RainProtection: Rain Protection Header
 		}
 
 		AccessoryDisableThreshold: {
@@ -163,6 +164,26 @@ Configs: {
 		WetDisableChancePerSecond: {
 			Label: Wet Disable Chance Per Second
 			Tooltip: Шанс 'сдаться' и отключиться из-за влажности за одну секунду при 100% влажности. У порога (AccessoryDisableThreshold) шанс почти нулевой и линейно растёт до этого значения к 100% влажности. Как только вещь отключилась - она не заработает обратно, пока не высохнет полностью (0%), даже если влажность потом снова упадёт ниже порога
+		}
+
+		RainProtectionPerPieceArmor: {
+			Label: Rain Protection Per Piece Armor
+			Tooltip: Насколько снижается вклад дождя в намокание БРОНИ за каждую надетую непромокаемую вещь (Rain Hat/Coat, Angler Hat/Vest/Pants и т.п.) в слотах шлема/тела/ног
+		}
+
+		RainProtectionMaxArmor: {
+			Label: Rain Protection Max Armor
+			Tooltip: Максимальное суммарное снижение вклада дождя в намокание брони (при всех 3 непромокаемых предметах)
+		}
+
+		RainProtectionPerPieceAccessory: {
+			Label: Rain Protection Per Piece Accessory
+			Tooltip: Насколько снижается вклад дождя в намокание АКСЕССУАРОВ за каждую надетую непромокаемую вещь в слотах брони
+		}
+
+		RainProtectionMaxAccessory: {
+			Label: Rain Protection Max Accessory
+			Tooltip: Максимальное суммарное снижение вклада дождя в намокание аксессуаров (при всех 3 непромокаемых предметах)
 		}
 	}
 }
