@@ -1,0 +1,223 @@
+Mods: {
+	WetnessMod: {
+		Configs: {
+			WetnessConfig: {
+				DisplayName: Wetness Mod Settings
+
+				Headers: {
+					Wetting: Wetting
+					Drying: Drying
+					EquipmentEffects: Equipment Effects
+					RainProtection: Rain Protection
+					SoilToMud: Soil to Mud
+					Puddles: Puddles
+					FireExtinguish: Fire Extinguishing
+					VisualEffects: Visual Effects
+				}
+
+				RainWetRate: {
+					Label: Rain Wetting Rate
+					Tooltip: Wetness rate from rain (% per tick) - reduced so clothes take noticeably longer to get wet
+				}
+
+				WaterWetRate: {
+					Label: Water Wetting Rate
+					Tooltip: Wetness rate from water immersion (% per tick) - also reduced, though immersion still wets faster than rain
+				}
+
+				SnowWetRateMultiplier: {
+					Label: Snow Wetting Multiplier
+					Tooltip: How much slower clothes get wet from snow in snow biome compared to regular rain (0.3 = ~3x slower) - dry snow shakes off clothes rather than immediately soaking them, unlike rain
+				}
+
+				BaseDryRate: {
+					Label: Base Drying Rate
+					Tooltip: Base drying rate (% per tick), further multiplied by weather/location modifiers. Intentionally reduced so complete drying takes noticeable time, not just a couple seconds
+				}
+
+				SunnyDryMultiplier: {
+					Label: Sunny Drying Multiplier
+					Tooltip: Drying multiplier under open sky, clear, daytime, no rain - fastest option
+				}
+
+				CloudyOrNightDryMultiplier: {
+					Label: Cloudy/Night Drying Multiplier
+					Tooltip: Drying multiplier under open sky, but at night/cloudy (no sun, but fresh air)
+				}
+
+				ShadeDryMultiplier: {
+					Label: Shade Drying Multiplier
+					Tooltip: Drying multiplier indoors/under roof on surface (no open sky, no campfire nearby, but not deep underground)
+				}
+
+				UndergroundDryMultiplier: {
+					Label: Underground Drying Multiplier
+					Tooltip: Drying multiplier deep underground without campfire nearby - slowest option of all (stale humid air)
+				}
+
+				CampfireDryMultiplier: {
+					Label: Campfire Drying Multiplier
+					Tooltip: Drying multiplier near lit campfire/hellforge/forge - overrides all other conditions
+				}
+
+				TorchDryMultiplier: {
+					Label: Torch Drying Multiplier
+					Tooltip: Drying multiplier near lit torch - weaker than campfire, but helps where it would otherwise be slow (indoors/underground). If normal conditions are already better (e.g. sun outside), torch changes nothing
+				}
+
+				FireWarmthDetectionRadius: {
+					Label: Heat Source Detection Radius
+					Tooltip: Radius in blocks where lit campfires/torches/forges are searched for to speed up drying. Tile must additionally be in line of sight - doesn't count through walls
+				}
+
+				UnderworldDryMultiplier: {
+					Label: Underworld Drying Multiplier
+					Tooltip: Drying multiplier in the Underworld (no rain there, and heat dries quickly)
+				}
+
+				MaxArmorDefenseLossFraction: {
+					Label: Max Armor Defense Loss
+					Tooltip: Maximum defense fraction that armor loses if it 'gave up' due to wetness (see Wet Disable Chance Per Second)
+				}
+
+				AccessoryDisableThreshold: {
+					Label: Accessory Disable Threshold
+					Tooltip: Wetness (%) after which armor/accessories start having a chance to completely disable due to dampness. Below this threshold, item works normally
+				}
+
+				WetDisableChancePerSecond: {
+					Label: Wet Disable Chance Per Second
+					Tooltip: Chance to 'give up' and disable due to wetness per second at 100% wetness. At threshold (Accessory Disable Threshold) chance is nearly zero and linearly grows to this value at 100% wetness. Once item disabled - it won't work again until it dries completely (0%), even if wetness drops below threshold later
+				}
+
+				RainProtectionPerPieceArmor: {
+					Label: Armor Protection Per Piece
+					Tooltip: How much rain contribution to ARMOR wetting is reduced per each waterproof item worn (Rain Hat/Coat, Angler Hat/Vest/Pants etc.) in helmet/body/legs slots
+				}
+
+				RainProtectionMaxArmor: {
+					Label: Max Armor Protection
+					Tooltip: Maximum total reduction of rain contribution to armor wetting (with all 3 waterproof items)
+				}
+
+				RainProtectionPerPieceAccessory: {
+					Label: Accessory Protection Per Piece
+					Tooltip: How much rain contribution to ACCESSORY wetting is reduced per each waterproof item worn in armor slots
+				}
+
+				RainProtectionMaxAccessory: {
+					Label: Max Accessory Protection
+					Tooltip: Maximum total reduction of rain contribution to accessory wetting (with all 3 waterproof items)
+				}
+
+				TileWetnessRangeX: {
+					Label: Ground Wetness Range
+					Tooltip: Radius in blocks left/right from player where ground wetness is tracked
+				}
+
+				TileWetRate: {
+					Label: Ground Wetting Rate
+					Tooltip: Moisture accumulation rate in ground block under rain per attempt (% per attempt)
+				}
+
+				TileDryRate: {
+					Label: Mud Drying Rate
+					Tooltip: Mud drying rate when rain stops (% per tick) - intentionally equal to wetting rate, so it dries about as long as it wets
+				}
+
+				TileMaxAttemptsPerTick: {
+					Label: Wetting Attempts Per Tick
+					Tooltip: How many random blocks per tick try to get wet/dry (less = slower and more natural)
+				}
+
+				TileSeepThreshold: {
+					Label: Seep Threshold
+					Tooltip: How much top ground layer must get wet before layer below starts wetting
+				}
+
+				TileDepthRateMultiplier: {
+					Label: Depth Wetting Multiplier
+					Tooltip: How much slower each next ground layer wets going deeper (max depth - 3 blocks)
+				}
+
+				TileNeighborSpreadBonus: {
+					Label: Mud Spread Bonus
+					Tooltip: Bonus to wetting rate if neighbor block at same depth already became mud (for spreading stain effect)
+				}
+
+				PuddleEnabled: {
+					Label: Enable Puddles
+					Tooltip: Put some real water on top of freshly appeared mud - real liquid in game already knows how to reflect sky and ripple, so you get honest shiny puddle effect without any shaders
+				}
+
+				PuddleChance: {
+					Label: Puddle Spawn Chance
+					Tooltip: Chance that specific fresh mud block will get puddle (not every one in a row, otherwise would look like solid swamp)
+				}
+
+				PuddleMinLiquidAmount: {
+					Label: Min Puddle Liquid
+					Tooltip: Minimum liquid amount in puddle (0-255, like in vanilla game) - small values give tiny, barely noticeable puddle
+				}
+
+				PuddleMaxLiquidAmount: {
+					Label: Max Puddle Liquid
+					Tooltip: Maximum liquid amount in puddle (0-255) - remember, 255 is already full water block, not tiny puddle
+				}
+
+				FireExtinguishEnabled: {
+					Label: Enable Fire Extinguishing
+					Tooltip: Enables extinguishing torches and campfires under open rain
+				}
+
+				FireExtinguishRangeX: {
+					Label: Fire Extinguish Range
+					Tooltip: Radius in blocks around player (both X and Y) where torches/campfires are tracked
+				}
+
+				FireMaxAttemptsPerTick: {
+					Label: Fire Extinguish Attempts Per Tick
+					Tooltip: How many random torches/campfires per tick system tries to extinguish
+				}
+
+				FireMaxSkyCheckHeight: {
+					Label: Roof Check Height
+					Tooltip: How many blocks up roof is checked above torch/campfire (more = more accurate, but more expensive)
+				}
+
+				FireExtinguishRate: {
+					Label: Extinguish Rate
+					Tooltip: How much 'extinguishing progress' (0-100) builds up per one successful attempt at max rain strength - lower value = longer and more diverse time for torches/campfires to extinguish
+				}
+
+				FireExtinguishCooldownRate: {
+					Label: Extinguish Cooldown Rate
+					Tooltip: How fast accumulated extinguishing progress cools down if rain stops or tile ended up under roof before extinguishing
+				}
+
+				FireSpawnDust: {
+					Label: Smoke Particles
+					Tooltip: Spawn smoke/steam during extinguishing and on the way to it
+				}
+
+				WaterDripEnabled: {
+					Label: Enable Water Drips
+					Tooltip: Show water drops dripping from wet armor/accessories
+				}
+
+				DisabledItemSparkleEnabled: {
+					Label: Disabled Item Sparkle
+					Tooltip: Show frost sparkle at slot position of item that is currently disabled due to wetness. Disabled by default - can enable if you want more obvious indication of failed items
+				}
+			}
+		}
+
+		TooltipStatuses: {
+			DisabledByWetness_Armor: Disabled due to dampness: defense greatly reduced until completely dry
+			DisabledByWetness_Accessory: Disabled due to dampness: effect not working until completely dry
+			VeryWet: Very wet
+			Wet: Wet
+			SlightlyWet: Slightly damp
+		}
+	}
+}

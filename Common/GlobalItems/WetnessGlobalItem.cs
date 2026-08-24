@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.GameContent;
+using Terraria.Localization;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
 using WetnessMod.Common.Configs;
@@ -95,23 +96,23 @@ namespace WetnessMod.Common.GlobalItems
                 // "сдалась" и не заработает, пока не высохнет полностью - независимо от того,
                 // сколько сейчас процентов влажности показывает счётчик.
                 status = isArmorPiece
-                    ? "Отключена из-за сырости: защита сильно снижена, пока не высохнет полностью"
-                    : "Отключён из-за сырости: эффект не работает, пока не высохнет полностью";
+                    ? Language.GetTextValue("Mods.WetnessMod.TooltipStatuses.DisabledByWetness_Armor")
+                    : Language.GetTextValue("Mods.WetnessMod.TooltipStatuses.DisabledByWetness_Accessory");
                 color = new Color(120, 170, 255);
             }
             else if (Wetness >= 60f)
             {
-                status = "Сильно мокрое";
+                status = Language.GetTextValue("Mods.WetnessMod.TooltipStatuses.VeryWet");
                 color = new Color(140, 190, 255);
             }
             else if (Wetness >= 25f)
             {
-                status = "Влажное";
+                status = Language.GetTextValue("Mods.WetnessMod.TooltipStatuses.Wet");
                 color = new Color(170, 210, 255);
             }
             else
             {
-                status = "Слегка влажное";
+                status = Language.GetTextValue("Mods.WetnessMod.TooltipStatuses.SlightlyWet");
                 color = new Color(200, 225, 255);
             }
 
