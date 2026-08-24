@@ -282,6 +282,13 @@ namespace WetnessMod.Common.Systems
             {
                 ConvertTile(x, y, TileID.Mud);
                 tileMoisture[key] = 100f;
+
+                if (depth == 0)
+                {
+                    // Лужа имеет смысл только на самой поверхности (depth==0) - там, где
+                    // прямо над блоком есть открытый воздух, а не другой слой почвы.
+                    TryCreatePuddle(config, x, y);
+                }
             }
             else
             {
@@ -302,6 +309,7 @@ namespace WetnessMod.Common.Systems
                 {
                     ConvertTile(x, y, TileID.Dirt);
                     tileMoisture.Remove(key);
+                    RemovePuddle(x, y);
                 }
                 else
                 {
@@ -344,6 +352,111 @@ namespace WetnessMod.Common.Systems
             return leftMud || rightMud;
         }
 
+        // --- Лужи ---
+        //
+        // Ключ - координаты тайла с ЖИДКОСТЬЮ (то есть на один блок выше только что
+        // образовавшейся грязи), а не координаты самой грязи. Храним только те лужи,
+        // которые создала эта система - чтобы при высыхании убирать именно свою воду,
+        // а не случайно осушить настоящий пруд игрока, который просто оказался рядом.
+        private readonly HashSet<(int x, int y)> puddleTiles = new();
+
+        /// <summary>
+        /// Пытается положить немного настоящей воды поверх только что образовавшейся
+        /// грязи - реальная жидкость в Terraria уже умеет отражать небо/фон и красиво
+        /// покачиваться, так что это даёт честный эффект "блестящей лужи" бесплатно,
+        /// без единого кастомного шейдера.
+        ///
+        /// Лужа появляется не на каждом блоке грязи подряд (иначе выглядело бы как
+        /// сплошное болото), а с шансом (PuddleChance) и только там, где это похоже на
+        /// естественное углубление или ровный участок - если соседние колонки заметно
+        /// выше текущей точки, вода бы просто стекла со склона, а не осталась лужей.
+        /// </summary>
+        private void TryCreatePuddle(WetnessConfig config, int x, int y)
+        {
+            if (!config.PuddleEnabled)
+            {
+                return;
+            }
+
+            if (Main.rand.NextFloat() >= config.PuddleChance)
+            {
+                return;
+            }
+
+            int aboveY = y - 1;
+            if (aboveY < 0)
+            {
+                return;
+            }
+
+            Tile above = Main.tile[x, aboveY];
+            if (above.HasTile)
+            {
+                return; // сверху что-то стоит - луже там не место
+            }
+
+            if (above.LiquidAmount > 10)
+            {
+                return; // там и так уже заметно много жидкости - не трогаем чужую воду
+            }
+
+            // Эвристика "естественного углубления": лужа появляется только там, где
+            // соседние колонки на поверхности НЕ выше текущей точки (то есть это
+            // локальная низина или ровный участок, а не склон/вершина холма).
+            int leftSurface = FindOpenSurfaceTile(x - 1);
+            int rightSurface = FindOpenSurfaceTile(x + 1);
+            bool isDepressionOrFlat = (leftSurface < 0 || leftSurface <= y) && (rightSurface < 0 || rightSurface <= y);
+            if (!isDepressionOrFlat)
+            {
+                return;
+            }
+
+            byte amount = (byte)Main.rand.Next(config.PuddleMinLiquidAmount, config.PuddleMaxLiquidAmount + 1);
+            above.LiquidType = LiquidID.Water;
+            above.LiquidAmount = amount;
+
+            // Ставим тайл в очередь на обработку ванильной физикой жидкостей - это даёт
+            // настоящую симуляцию (растекание по низине, покачивание, отражение), а не
+            // просто статичную картинку.
+            Liquid.AddWater(x, aboveY);
+
+            puddleTiles.Add((x, aboveY));
+
+            if (Main.netMode == NetmodeID.Server)
+            {
+                NetMessage.SendData(MessageID.LiquidUpdate, -1, -1, null, x, aboveY);
+            }
+        }
+
+        /// <summary>
+        /// Убирает лужу, которую создала именно эта система, когда грязь под ней высохла
+        /// обратно в землю. Если на этом месте лужи нет (например, блок стал грязью без
+        /// лужи из-за проверки на углубление) - ничего не делает.
+        /// </summary>
+        private void RemovePuddle(int x, int y)
+        {
+            int aboveY = y - 1;
+            var key = (x, aboveY);
+            if (!puddleTiles.Contains(key))
+            {
+                return; // это не наша лужа - не трогаем (могла быть настоящая вода игрока)
+            }
+
+            if (aboveY >= 0)
+            {
+                Tile above = Main.tile[x, aboveY];
+                above.LiquidAmount = 0;
+                Liquid.AddWater(x, aboveY);
+
+                if (Main.netMode == NetmodeID.Server)
+                {
+                    NetMessage.SendData(MessageID.LiquidUpdate, -1, -1, null, x, aboveY);
+                }
+            }
+
+            puddleTiles.Remove(key);
+        }
+
         private void ConvertTile(int x, int y, ushort newType)
         {
             Main.tile[x, y].TileType = newType;
@@ -381,6 +494,7 @@ namespace WetnessMod.Common.Systems
         {
             tileMoisture.Clear();
             candidates.Clear();
+            puddleTiles.Clear();
         }
 
         public override void SaveWorldData(Terraria.ModLoader.IO.TagCompound tag)

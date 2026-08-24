@@ -147,6 +147,27 @@ namespace WetnessMod.Common.Configs
         [Tooltip("Бонус к скорости намокания, если соседний блок на той же глубине уже стал грязью (для эффекта расползающегося пятна)")]
         public float TileNeighborSpreadBonus;
 
+        [Header("Puddles")]
+
+        [DefaultValue(true)]
+        [Tooltip("Класть немного настоящей воды поверх свежепоявившейся грязи - настоящая жидкость в игре уже умеет отражать небо и покачиваться, так что получается честный эффект блестящей лужи без всяких шейдеров")]
+        public bool PuddleEnabled;
+
+        [Range(0f, 1f)]
+        [DefaultValue(0.5f)]
+        [Tooltip("Шанс, что на конкретном свежем блоке грязи появится лужа (не на каждом подряд, иначе будет выглядеть как сплошное болото)")]
+        public float PuddleChance;
+
+        [Range(1, 255)]
+        [DefaultValue(40)]
+        [Tooltip("Минимальное количество жидкости в луже (0-255, как в ванильной игре) - маленькие значения дают мелкую, едва заметную лужицу")]
+        public int PuddleMinLiquidAmount;
+
+        [Range(1, 255)]
+        [DefaultValue(110)]
+        [Tooltip("Максимальное количество жидкости в луже (0-255) - помните, что 255 - это уже полноценный блок воды, а не мелкая лужа")]
+        public int PuddleMaxLiquidAmount;
+
         [Header("FireExtinguish")]
 
         [DefaultValue(true)]

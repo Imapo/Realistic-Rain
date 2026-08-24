@@ -43,6 +43,7 @@ Configs: {
 			FireExtinguish: Fire Extinguish Header
 			RainProtection: Rain Protection Header
 			VisualEffects: Visual Effects Header
+			Puddles: Puddles Header
 		}
 
 		AccessoryDisableThreshold: {
@@ -220,6 +221,26 @@ Configs: {
 		DisabledItemSparkleEnabled: {
 			Label: Disabled Item Sparkle Enabled
 			Tooltip: Показывать морозный блеск на месте слота предмета, который прямо сейчас отключён из-за влажности (DisabledByWetness). По умолчанию выключено - можно включить, если захочется более явную индикацию отказавших вещей
+		}
+
+		PuddleEnabled: {
+			Label: Puddle Enabled
+			Tooltip: Класть немного настоящей воды поверх свежепоявившейся грязи - настоящая жидкость в игре уже умеет отражать небо и покачиваться, так что получается честный эффект блестящей лужи без всяких шейдеров
+		}
+
+		PuddleChance: {
+			Label: Puddle Chance
+			Tooltip: Шанс, что на конкретном свежем блоке грязи появится лужа (не на каждом подряд, иначе будет выглядеть как сплошное болото)
+		}
+
+		PuddleMinLiquidAmount: {
+			Label: Puddle Min Liquid Amount
+			Tooltip: Минимальное количество жидкости в луже (0-255, как в ванильной игре) - маленькие значения дают мелкую, едва заметную лужицу
+		}
+
+		PuddleMaxLiquidAmount: {
+			Label: Puddle Max Liquid Amount
+			Tooltip: Максимальное количество жидкости в луже (0-255) - помните, что 255 - это уже полноценный блок воды, а не мелкая лужа
 		}
 	}
 }
