@@ -20,6 +20,108 @@ namespace WetnessMod.Common.Players
     {
         public const int TrackedSlots = 10;
 
+        // Аксессуары, которые логично отключаются при намокании (ботинки, крылья, прыжки, рывки)
+        // Используются ТОЛЬКО числовые ID для 100% гарантии компиляции в любой версии tModLoader 1.4
+        // Аксессуары, которые влияют на передвижение игрока.
+        // Крылья сюда НЕ входят — они определяются автоматически через item.wingSlot.
+        private static readonly HashSet<int> MovementAccessories = new()
+        {
+            // ============================================================
+            // БОТИНКИ / БЕГ / СКОРОСТЬ / ПОВЕРХНОСТИ
+            // ============================================================
+
+            54,     // Hermes Boots
+            3200,   // Sailfish Boots
+            1579,   // Flurry Boots
+            4055,   // Dunerider Boots
+            405,    // Spectre Boots
+            898,    // Lightning Boots
+            1862,   // Frostspark Boots
+            5000,   // Terraspark Boots
+            128,    // Rocket Boots
+
+            212,    // Anklet of the Wind
+            285,    // Aglet
+
+            950,    // Ice Skates
+
+            // Водные / лавовые поверхности
+            863,    // Water Walking Boots
+            907,    // Obsidian Water Walking Boots
+            908,    // Lava Waders
+
+            // ============================================================
+            // ДВОЙНОЙ ПРЫЖОК / ПРЫЖОК
+            // ============================================================
+
+            53,     // Cloud in a Bottle
+            987,    // Blizzard in a Bottle
+            857,    // Sandstorm in a Bottle
+            3201,   // Tsunami in a Bottle
+            1724,   // Fart in a Jar
+
+            // ============================================================
+            // ШАРИКИ
+            // ============================================================
+
+            159,    // Shiny Red Balloon
+            399,    // Cloud in a Balloon
+            1163,   // Blizzard in a Balloon
+            983,    // Sandstorm in a Balloon
+            1863,   // Fart in a Balloon
+            1249,   // Honey Balloon
+
+            1164,   // Bundle of Balloons
+
+            // Horseshoe Balloons
+            1250,   // Blue Horseshoe Balloon
+            1251,   // White Horseshoe Balloon
+            1252,   // Yellow Horseshoe Balloon
+
+            // Дополнительные варианты
+            3250,   // Green Horseshoe Balloon
+            3251,   // Amber Horseshoe Balloon
+            3252,   // Pink Horseshoe Balloon
+
+            3225,   // Balloon Pufferfish
+            3241,   // Sharkron Balloon
+            5331,   // Bundle of Horseshoe Balloons
+
+            // ============================================================
+            // ЛАЗАНИЕ
+            // ============================================================
+
+            953,    // Climbing Claws
+            975,    // Shoe Spikes
+            976,    // Tiger Climbing Gear
+            977,    // Tabi
+            984,    // Master Ninja Gear
+
+            // ============================================================
+            // РЫВОК
+            // ============================================================
+
+            3097,   // Shield of Cthulhu
+
+            // ============================================================
+            // БЕСКОНЕЧНЫЙ ПОЛЁТ
+            // ============================================================
+
+            4989,   // Soaring Insignia
+        };
+
+        /// <summary>
+        /// Универсальная проверка крыльев.
+        /// Работает для ванильных и модовых крыльев.
+        /// </summary>
+        private static bool IsWingAccessory(Item item)
+        {
+            return item != null
+                && !item.IsAir
+                && item.accessory
+                && item.wingSlot >= 0;
+        }
+
         // Кешируем результат "открытого неба" раз в несколько тиков — это недешёвая проверка,
         // а погода не меняется мгновенно, так что легкая задержка незаметна.
         private int openSkyCheckCooldown = 0;
@@ -117,52 +219,85 @@ namespace WetnessMod.Common.Players
                 wet = MathHelper.Clamp(wet, 0f, 100f);
                 wetnessData.Wetness = wet;
 
-                UpdateWetDisableState(config, wetnessData, wet);
+                UpdateWetDisableState(config, wetnessData, wet, equipped, i);
             }
 
             HideWetAccessories(config);
         }
 
         /// <summary>
-        /// Обновляет "залипающее" состояние отключения из-за влажности (гистерезис).
-        /// Раньше вещь считалась отключённой ровно тогда, когда текущая влажность >= порога,
-        /// и поэтому включалась обратно мгновенно, как только влажность опускалась чуть ниже —
-        /// в частности, сразу же после конца дождя, что и было основной жалобой на старое
-        /// поведение. Теперь это два разных события:
-        ///
-        /// 1) Пока вещь ещё не отключена и её влажность выше AccessoryDisableThreshold (по
-        ///    умолчанию 50%), каждую секунду есть шанс, что она "сдастся" и перестанет
-        ///    работать. Чем ближе влажность к 100%, тем этот шанс выше (линейно от 0 у порога
-        ///    до WetDisableChancePerSecond у 100%).
-        /// 2) Если вещь уже отключена, она остаётся отключённой независимо от того, как
-        ///    дальше колеблется текущая влажность (в том числе если дождь кончился и
-        ///    влажность пошла вниз) — и включается обратно только тогда, когда высохнет
-        ///    полностью, то есть влажность дойдёт до 0.
+        /// Обновляет "залипающее" состояние отключения из-за влажности.
+        /// Симметричная механика:
+        /// - Выше порога (50%): шанс отключения растёт с влажностью
+        /// - Ниже порога (50%): шанс включения растёт с уменьшением влажности
         /// </summary>
-        private void UpdateWetDisableState(WetnessConfig config, WetnessGlobalItem data, float wetness)
+        private void UpdateWetDisableState(WetnessConfig config, WetnessGlobalItem data, float wetness, Item item, int slot)
         {
+            // Для аксессуаров (слоты 3-9) проверяем уязвимость
+            if (slot >= 3 && slot < TrackedSlots)
+            {
+                if (!IsAccessoryVulnerableToWetness(item, config))
+                {
+                    return; // Этот аксессуар не отключается от воды (например, щит или эмблема)
+                }
+            }
+
+            float threshold = config.AccessoryDisableThreshold; // по умолчанию 50%
+            float range = System.Math.Max(1f, 100f - threshold);
+
             if (data.DisabledByWetness)
             {
-                if (wetness <= 0.01f)
+                // Вещь отключена — проверяем шанс включения
+                if (wetness < threshold)
                 {
-                    data.DisabledByWetness = false;
+                    // Чем ниже влажность, тем выше шанс включения
+                    // При 0% влажности шанс максимальный, при 50% — минимальный
+                    float fraction = (threshold - wetness) / threshold; // 0..1 (0 при 50%, 1 при 0%)
+                    float chancePerTick = config.WetDisableChancePerSecond * fraction / 60f;
+
+                    if (Main.rand.NextFloat() < chancePerTick)
+                    {
+                        data.DisabledByWetness = false;
+                    }
                 }
-                return; // пока не высохло полностью — не включаем обратно
+                return;
             }
 
-            if (wetness <= config.AccessoryDisableThreshold)
+            // Вещь работает — проверяем шанс отключения
+            if (wetness <= threshold)
             {
-                return; // ещё недостаточно мокрая, чтобы вообще рисковать отключением
+                return; // ещё недостаточно мокрая, чтобы рисковать отключением
             }
 
-            float range = System.Math.Max(1f, 100f - config.AccessoryDisableThreshold);
-            float fraction = (wetness - config.AccessoryDisableThreshold) / range; // 0..1
-            float chancePerTick = config.WetDisableChancePerSecond * fraction / 60f; // тиков в секунде
+            // Чем выше влажность, тем выше шанс отключения
+            // При 100% влажности шанс максимальный, при 50% — минимальный
+            float disableFraction = (wetness - threshold) / range; // 0..1 (0 при 50%, 1 при 100%)
+            float disableChancePerTick = config.WetDisableChancePerSecond * disableFraction / 60f;
 
-            if (Main.rand.NextFloat() < chancePerTick)
+            if (Main.rand.NextFloat() < disableChancePerTick)
             {
                 data.DisabledByWetness = true;
             }
+        }
+
+        /// <summary>
+        /// Определяет, должен ли аксессуар отключаться при намокании.
+        /// </summary>
+        private bool IsAccessoryVulnerableToWetness(Item item, WetnessConfig config)
+        {
+            // Хардкорный режим: отключается вообще всё.
+            if (config.HardcoreAccessoryWetness)
+                return true;
+
+            if (item == null || item.IsAir || !item.accessory)
+                return false;
+
+            // Любые крылья (включая модовые).
+            if (IsWingAccessory(item))
+                return true;
+
+            // Остальные аксессуары передвижения.
+            return MovementAccessories.Contains(item.type);
         }
 
         // Сюда на время прячутся мокрые аксессуары, чтобы ванильный код их "не увидел"
@@ -627,8 +762,8 @@ namespace WetnessMod.Common.Players
 
         private void SpawnWaterDrips(List<(int slot, float wetness)> wetItems)
         {
-            // Ограничиваем количество капель за тик для производительности
-            int maxDropsPerTick = 4;
+            // Ограничиваем количество капель за тик
+            int maxDropsPerTick = 2;
             int dropsSpawned = 0;
 
             foreach (var (slot, wetness) in wetItems)
@@ -638,30 +773,31 @@ namespace WetnessMod.Common.Players
                     break;
                 }
 
-                // Шанс капли пропорционален влажности (0..1 при влажности 20..100)
+                // Шанс капли пропорционален влажности
                 float dropChance = (wetness - 20f) / 80f;
                 
-                if (Main.rand.NextFloat() >= dropChance * 0.15f)
+                if (Main.rand.NextFloat() >= dropChance * 0.08f) // Ещё реже (было 0.12f)
                 {
                     continue;
                 }
 
-                // Определяем позицию капли в зависимости от слота
                 Vector2 dropPosition = GetDropPosition(slot);
 
+                // Маленькие, медленные капли
                 Dust drop = Dust.NewDustDirect(
                     dropPosition,
-                    4, 4,
+                    2, 2, // Маленький размер (было 6x6)
                     DustID.Water,
-                    0f, 2f,
-                    100,
-                    default,
-                    0.8f
+                    0f, 0.3f, // Очень медленное падение (было 0.8f)
+                    180,
+                    new Color(120, 180, 255),
+                    0.6f // Маленький масштаб (было 1.2f)
                 );
+                
                 drop.noGravity = false;
-                drop.velocity.Y += 1.5f;
-                drop.velocity.X += Main.rand.NextFloat(-0.3f, 0.3f);
-
+                drop.velocity.Y = 0.3f; // Фиксированная медленная скорость
+                drop.velocity.X = Main.rand.NextFloat(-0.1f, 0.1f); // Почти без отклонения
+                
                 dropsSpawned++;
             }
         }

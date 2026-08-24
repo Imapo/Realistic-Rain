@@ -73,6 +73,9 @@ namespace WetnessMod.Common.Configs
         [DefaultValue(0.15f)]
         public float WetDisableChancePerSecond;
 
+        [DefaultValue(false)]
+        public bool HardcoreAccessoryWetness;
+
         [Header("RainProtection")]
 
         [Range(0f, 1f)]

@@ -209,12 +209,17 @@ Mods: {
 					Label: Disabled Item Sparkle
 					Tooltip: Show frost sparkle at slot position of item that is currently disabled due to wetness. Disabled by default - can enable if you want more obvious indication of failed items
 				}
+
+				HardcoreAccessoryWetness: {
+					Label: Hardcore Accessory Wetness
+					Tooltip: If enabled, ALL accessories disable when wet without exception. If disabled, only wings, boots, and movement/jump accessories are affected.
+				}
 			}
 		}
 
 		TooltipStatuses: {
-			DisabledByWetness_Armor: Disabled due to dampness: defense greatly reduced until completely dry
-			DisabledByWetness_Accessory: Disabled due to dampness: effect not working until completely dry
+			DisabledByWetness_Armor: Disabled due to dampness: protection is significantly reduced until it dries out
+			DisabledByWetness_Accessory: Disabled due to moisture: the effect does not work until it dries out
 			VeryWet: Very wet
 			Wet: Wet
 			SlightlyWet: Slightly damp
