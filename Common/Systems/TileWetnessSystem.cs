@@ -77,6 +77,16 @@ namespace WetnessMod.Common.Systems
                     continue;
                 }
 
+                // Намокание/высыхание земли работает только в трёх биомах на поверхности:
+                // лес, пустыня, океан. Во всех остальных (джунгли, снег, порча/кримсон/
+                // святыня, грибной, подземелье и т.п.) земля не мокнет и не сохнет вообще -
+                // например, в джунглях и так естественная влажность, которую эта система
+                // не пытается моделировать отдельно.
+                if (!IsAllowedBiome(player))
+                {
+                    continue;
+                }
+
                 int centerX = (int)(player.Center.X / 16f);
                 for (int x = centerX - config.TileWetnessRangeX; x <= centerX + config.TileWetnessRangeX; x++)
                 {
@@ -122,9 +132,49 @@ namespace WetnessMod.Common.Systems
                         break; // упёрлись в камень/руду и т.п. - глубже почва не пропитывается
                     }
 
+                    // ВАЖНО: если это уже готовая грязь, а мы её ещё не отслеживаем (например,
+                    // это грязь, поставленная самим игроком, или грязь, оставшаяся с прошлой
+                    // сессии - влажность между сессиями сознательно не сохраняется), нельзя
+                    // просто оставить её без записи. Без этой строчки TryDryTile увидел бы
+                    // "влажность по умолчанию 0" и мгновенно превратил бы её обратно в землю
+                    // при заходе в мир - именно это и вызывало баг с мгновенным высыханием.
+                    // Визуально это уже грязь, значит по определению она "полностью мокрая".
+                    if (tile.TileType == TileID.Mud && !tileMoisture.ContainsKey((x, y)))
+                    {
+                        tileMoisture[(x, y)] = 100f;
+                    }
+
                     candidates.Add((x, y, depth));
                 }
             }
+        }
+
+        /// <summary>
+        /// Разрешённые биомы для намокания/высыхания земли: лес, пустыня, океан.
+        /// "Лес" в терминах игры - это фактически ОТСУТСТВИЕ всех остальных особых
+        /// биомов на поверхности (у него нет отдельного флага Player.ZoneForest).
+        /// Джунгли, снег, порча/кримсон/священная роща, грибной биом, подземелье и
+        /// подземная пустыня сюда намеренно не входят - там земля/грязь не мокнет
+        /// и не сохнет от этой системы вообще.
+        /// </summary>
+        private static bool IsAllowedBiome(Player player)
+        {
+            if (player.ZoneDesert || player.ZoneBeach)
+            {
+                return true; // явно пустыня или океан/пляж
+            }
+
+            bool isOtherSpecialBiome = player.ZoneJungle
+                || player.ZoneSnow
+                || player.ZoneCorrupt
+                || player.ZoneCrimson
+                || player.ZoneHallow
+                || player.ZoneGlowshroom
+                || player.ZoneUndergroundDesert
+                || player.ZoneDungeon;
+
+            // "Лес" = обычная поверхность без каких-либо других особых биомов.
+            return player.ZoneOverworldHeight && !isOtherSpecialBiome;
         }
 
         /// <summary>

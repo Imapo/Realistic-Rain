@@ -1,7 +1,7 @@
-displayName = Wetness Mod
-author = You
-version = 0.1.0
+displayName = Imapo's Wetness Mod
+author = IMAPO
+version = 0.9
 homepage =
-description = Намокание экипировки под дождём/в воде/в джунглях и превращение земли в грязь на открытом дожде.
+description = Реалистичный дождь
 side = Both
 modReferences =
